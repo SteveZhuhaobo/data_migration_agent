@@ -1,0 +1,9 @@
+pandas
+openai
+mcp
+pydantic
+pyodbc
+databricks-sql-connector
+pyyaml
+asyncio
+httpx
