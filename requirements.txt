@@ -7,3 +7,4 @@ databricks-sql-connector
 pyyaml
 asyncio
 httpx
+geopandas
