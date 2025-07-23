@@ -1,0 +1,51 @@
+{
+    "tables": {
+      "customers": {
+        "source_table": "dbo.Customers",
+        "target_table": "customers",
+        "columns": {
+          "CustomerID": {
+            "target": "customer_id",
+            "type": "string",
+            "transformation": null
+          },
+          "CompanyName": {
+            "target": "company_name",
+            "type": "string",
+            "transformation": "UPPER(CompanyName)"
+          },
+          "ContactName": {
+            "target": "contact_name",
+            "type": "string",
+            "transformation": null
+          },
+          "CreatedDate": {
+            "target": "created_date",
+            "type": "timestamp",
+            "transformation": "CAST(CreatedDate AS TIMESTAMP)"
+          }
+        }
+      },
+      "orders": {
+        "source_table": "dbo.Orders",
+        "target_table": "orders",
+        "columns": {
+          "OrderID": {
+            "target": "order_id",
+            "type": "int",
+            "transformation": null
+          },
+          "CustomerID": {
+            "target": "customer_id",
+            "type": "string",
+            "transformation": null
+          },
+          "OrderDate": {
+            "target": "order_date",
+            "type": "date",
+            "transformation": "CAST(OrderDate AS DATE)"
+          }
+        }
+      }
+    }
+  }
