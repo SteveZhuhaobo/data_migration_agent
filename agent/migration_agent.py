@@ -21,11 +21,32 @@ class DataMigrationAgent:
         
     async def initialize(self):
         """Initialize the agent by connecting to MCP server"""
-        await self.mcp_client.connect(["python", "mcp_server/server.py"])
+        try:
+            # If connect returns a context manager, use it properly
+            result = self.mcp_client.connect(["python", "mcp_server/server.py"])
+            
+            # Check if result is a coroutine or context manager
+            if hasattr(result, '__aenter__'):
+                # It's an async context manager
+                self.connection_context = result
+                await self.connection_context.__aenter__()
+            else:
+                # It's a regular coroutine
+                await result
+                
+        except Exception as e:
+            print(f"Error in initialize: {e}")
+            raise
     
     async def close(self):
         """Clean up resources"""
-        await self.mcp_client.close()
+        try:
+            if hasattr(self, 'connection_context'):
+                await self.connection_context.__aexit__(None, None, None)
+            else:
+                await self.mcp_client.close()
+        except Exception as e:
+            print(f"Error in close: {e}")
     
     def _get_system_prompt(self) -> str:
         """Get system prompt for the AI agent"""
@@ -62,6 +83,24 @@ class DataMigrationAgent:
         except Exception as e:
             return f"Error calling Azure OpenAI: {str(e)}"
     
+    async def _safe_mcp_call(self, method_name: str, *args, **kwargs):
+        """Safely call MCP client methods, handling both regular coroutines and context managers"""
+        try:
+            method = getattr(self.mcp_client, method_name)
+            result = method(*args, **kwargs)
+            
+            # Check if it's an async context manager
+            if hasattr(result, '__aenter__'):
+                async with result as context_result:
+                    return context_result
+            else:
+                # Regular coroutine
+                return await result
+                
+        except Exception as e:
+            print(f"Error in {method_name}: {e}")
+            raise
+    
     async def migrate_table(self, table_name: str) -> Dict:
         """Migrate a single table from SQL Server to Databricks"""
         results = {"steps": [], "status": "started"}
@@ -69,7 +108,7 @@ class DataMigrationAgent:
         try:
             # Step 1: Get table mapping
             results["steps"].append("Getting table mapping...")
-            mapping = await self.mcp_client.get_mapping(table_name)
+            mapping = await self._safe_mcp_call('get_mapping', table_name)
             if not mapping:
                 results["status"] = "error"
                 results["error"] = f"No mapping found for table {table_name}"
@@ -78,22 +117,22 @@ class DataMigrationAgent:
             # Step 2: Get source schema
             results["steps"].append("Getting source schema...")
             source_table = mapping.get('source_table', table_name)
-            schema = await self.mcp_client.get_sql_schema(source_table)
+            schema = await self._safe_mcp_call('get_sql_schema', source_table)
             results["source_schema"] = schema
             
             # Step 3: Create target table
             results["steps"].append("Creating target table...")
-            create_result = await self.mcp_client.create_databricks_table(table_name, schema)
+            create_result = await self._safe_mcp_call('create_databricks_table', table_name, schema)
             results["create_table_result"] = create_result
             
             # Step 4: Extract data
             results["steps"].append("Extracting data...")
-            data = await self.mcp_client.extract_data(source_table, limit=1000)
-            results["extracted_rows"] = len(data)
+            data = await self._safe_mcp_call('extract_data', source_table, limit=1000)
+            results["extracted_rows"] = len(data) if data else 0
             
             # Step 5: Load data
             results["steps"].append("Loading data...")
-            load_result = await self.mcp_client.load_data(table_name, data)
+            load_result = await self._safe_mcp_call('load_data', table_name, data)
             results["load_result"] = load_result
             
             results["status"] = "completed"
@@ -101,6 +140,8 @@ class DataMigrationAgent:
         except Exception as e:
             results["status"] = "error"
             results["error"] = str(e)
+            import traceback
+            traceback.print_exc()  # Add detailed error info
         
         return results
     
@@ -122,81 +163,73 @@ class DataMigrationAgent:
             if user_input.lower() == 'quit':
                 break
             
-            # Handle specific commands
-            if user_input.startswith('migrate '):
-                table_name = user_input.split(' ', 1)[1]
-                print(f"Starting migration for table: {table_name}")
-                result = await self.migrate_table(table_name)
-                print(f"Migration result: {json.dumps(result, indent=2)}")
-                continue
-            
-            elif user_input.startswith('schema '):
-                table_name = user_input.split(' ', 1)[1]
-                schema = await self.mcp_client.get_sql_schema(table_name)
-                print(f"Schema for {table_name}:")
-                print(json.dumps(schema, indent=2))
-                continue
-            
-            elif user_input.startswith('mapping '):
-                table_name = user_input.split(' ', 1)[1]
-                mapping = await self.mcp_client.get_mapping(table_name)
-                print(f"Mapping for {table_name}:")
-                print(json.dumps(mapping, indent=2))
-                continue
-            
-            # General AI conversation
-            conversation.append({"role": "user", "content": user_input})
-            
-            ai_response = await self.chat_with_ai(conversation)
-            print(f"Agent: {ai_response}")
-            
-            conversation.append({"role": "assistant", "content": ai_response})
+            try:
+                # Handle specific commands
+                if user_input.startswith('migrate '):
+                    table_name = user_input.split(' ', 1)[1]
+                    print(f"Starting migration for table: {table_name}")
+                    result = await self.migrate_table(table_name)
+                    print(f"Migration result: {json.dumps(result, indent=2)}")
+                    continue
+                
+                elif user_input.startswith('schema '):
+                    table_name = user_input.split(' ', 1)[1]
+                    schema = await self._safe_mcp_call('get_sql_schema', table_name)
+                    print(f"Schema for {table_name}:")
+                    print(json.dumps(schema, indent=2))
+                    continue
+                
+                elif user_input.startswith('mapping '):
+                    table_name = user_input.split(' ', 1)[1]
+                    mapping = await self._safe_mcp_call('get_mapping', table_name)
+                    print(f"Mapping for {table_name}:")
+                    print(json.dumps(mapping, indent=2))
+                    continue
+                
+                # General AI conversation
+                conversation.append({"role": "user", "content": user_input})
+                
+                ai_response = await self.chat_with_ai(conversation)
+                print(f"Agent: {ai_response}")
+                
+                conversation.append({"role": "assistant", "content": ai_response})
+                
+            except Exception as e:
+                print(f"Error: {e}")
+                import traceback
+                traceback.print_exc()
     
     async def migrate_all_tables(self) -> Dict:
         """Migrate all tables defined in the mapping"""
         results = {"overall_status": "started", "tables": {}}
         
-        # Get list of tables from mapping
-        with open("mappings/column_mapping.json", 'r') as f:
-            mapping = json.load(f)
-        
-        for table_name in mapping['tables'].keys():
-            print(f"Migrating table: {table_name}")
-            table_result = await self.migrate_table(table_name)
-            results["tables"][table_name] = table_result
+        try:
+            # Get list of tables from mapping
+            with open("mappings/column_mapping.json", 'r') as f:
+                mapping = json.load(f)
             
-            if table_result["status"] == "error":
-                print(f"Error migrating {table_name}: {table_result.get('error', 'Unknown error')}")
+            for table_name in mapping['tables'].keys():
+                print(f"Migrating table: {table_name}")
+                table_result = await self.migrate_table(table_name)
+                results["tables"][table_name] = table_result
+                
+                if table_result["status"] == "error":
+                    print(f"Error migrating {table_name}: {table_result.get('error', 'Unknown error')}")
+                else:
+                    print(f"Successfully migrated {table_name}")
+            
+            # Check overall status
+            failed_tables = [name for name, result in results["tables"].items() if result["status"] == "error"]
+            if failed_tables:
+                results["overall_status"] = "partial_success"
+                results["failed_tables"] = failed_tables
             else:
-                print(f"Successfully migrated {table_name}")
-        
-        # Check overall status
-        failed_tables = [name for name, result in results["tables"].items() if result["status"] == "error"]
-        if failed_tables:
-            results["overall_status"] = "partial_success"
-            results["failed_tables"] = failed_tables
-        else:
-            results["overall_status"] = "success"
+                results["overall_status"] = "success"
+                
+        except Exception as e:
+            results["overall_status"] = "error"
+            results["error"] = str(e)
+            import traceback
+            traceback.print_exc()
         
         return results
-
-# Example usage
-async def main():
-    agent = DataMigrationAgent()
-    
-    try:
-        await agent.initialize()
-        
-        # Option 1: Interactive chat
-        # await agent.chat_interface()
-        
-        # Option 2: Migrate all tables
-        results = await agent.migrate_all_tables()
-        print("Migration completed:")
-        print(json.dumps(results, indent=2))
-        
-    finally:
-        await agent.close()
-
-if __name__ == "__main__":
-    asyncio.run(main())

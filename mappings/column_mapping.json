@@ -18,11 +18,6 @@
             "target": "contact_name",
             "type": "string",
             "transformation": null
-          },
-          "CreatedDate": {
-            "target": "created_date",
-            "type": "timestamp",
-            "transformation": "CAST(CreatedDate AS TIMESTAMP)"
           }
         }
       },

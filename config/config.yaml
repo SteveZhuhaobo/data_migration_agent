@@ -7,19 +7,22 @@ azure_openai:
 
 # SQL Server Configuration
 sql_server:
-  server: "your-server.database.windows.net"
-  database: "your_database"
-  username: "your_username"
-  password: "your_password"
-  driver: "ODBC Driver 18 for SQL Server"
+  server: "localhost"
+  database: "Test_Steve"
+  driver: "ODBC Driver 17 for SQL Server"
+  use_windows_auth: false  # Uses SQL Server login
+  username: "steve_test"  # The SQL user you created
+  password: "SteveTest!23"  # The password you set
+  encrypt: "no"
+  trust_server_certificate: "yes"
 
 # Databricks Configuration
 databricks:
-  server_hostname: "your-workspace.cloud.databricks.com"
-  http_path: "/sql/1.0/warehouses/your-warehouse-id"
-  access_token: "your-access-token"
-  catalog: "your_catalog"
-  schema: "your_schema"
+  server_hostname: "dbc-877a27e7-77f1.cloud.databricks.com"
+  http_path: "/sql/1.0/warehouses/d8d77f34c4cd52cc"
+  access_token: "dapi7100f810053a294b0234708740d0a92c"
+  catalog: "steve_databricks"
+  schema: "data_migration"
 
 # MCP Server Configuration
 mcp_server:

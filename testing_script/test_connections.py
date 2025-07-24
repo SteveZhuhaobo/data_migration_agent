@@ -33,9 +33,9 @@ def test_sql_server_connection(config):
         DATABASE={config['sql_server']['database']};
         UID={config['sql_server']['username']};
         PWD={config['sql_server']['password']};
-        Encrypt=yes;
-        TrustServerCertificate=no;
-        Connection Timeout=30;
+        Encrypt={config['sql_server'].get('encrypt', 'no')};
+        TrustServerCertificate={config['sql_server'].get('trust_server_certificate', 'yes')};
+        Connection Timeout={config['sql_server'].get('connection_timeout', 30)};
         """
         
         conn = pyodbc.connect(conn_str)
@@ -180,9 +180,9 @@ def test_source_tables(config):
         DATABASE={config['sql_server']['database']};
         UID={config['sql_server']['username']};
         PWD={config['sql_server']['password']};
-        Encrypt=yes;
-        TrustServerCertificate=no;
-        Connection Timeout=30;
+        Encrypt={config['sql_server'].get('encrypt', 'no')};
+        TrustServerCertificate={config['sql_server'].get('trust_server_certificate', 'yes')};
+        Connection Timeout={config['sql_server'].get('connection_timeout', 30)};
         """
         
         conn = pyodbc.connect(conn_str)
