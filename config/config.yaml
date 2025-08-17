@@ -24,6 +24,10 @@ databricks:
   catalog: "steve_databricks"
   schema: "data_migration"
 
+# Azure DevOps Configuration
+azure_devops:
+  organization: "SteveZhu0309"  # Your Azure DevOps organization name
+
 # MCP Server Configuration
 mcp_server:
   host: "localhost"

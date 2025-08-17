@@ -1,0 +1,18 @@
+Task ID,Title,State,Assigned To,Remaining Effort (Hours),Tags,Link,Parent Task,Type
+10,"test databricks with mcp",To Do,Steve Zhu,5,"Databricks; Fusion5; MCP; Test",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/10,,Standalone
+11,"New Task Created by Kiro",To Do,Steve Zhu,Not estimated,"Kiro Created",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/11,,Standalone
+12,"trip_list validation",To Do,Steve Zhu,Not estimated,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/12,,Parent Task
+13,"Design workshop + documentation (timebox)",To Do,Steve Zhu,12,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/13,12,Child Task
+14,"Create a new case type (or an additional step in existing OC cases) in He Hapori for trip list validation and distribution",To Do,Steve Zhu,8,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/14,12,Child Task
+15,"Develop the component to upload trip list csv file",To Do,Steve Zhu,5,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/15,12,Child Task
+16,"Convert validation rules into SQL script",To Do,Steve Zhu,4,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/16,12,Child Task
+17,"Develop Fabric Notebook to validate Trip List file",To Do,Steve Zhu,24,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/17,12,Child Task
+18,"Develop Fabric Notebook to generate validation report",To Do,Steve Zhu,4,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/18,12,Child Task
+19,"Develop Fabric Data Pipeline to run the whole process and return info to He Hapori",To Do,Steve Zhu,8,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/19,12,Child Task
+20,"Distribute validated file",To Do,Steve Zhu,5,"mcp_created; trip_list",https://dev.azure.com/SteveZhu0309/d23488de-1c2b-42ee-82e9-571c869d060f/_workitems/edit/20,12,Child Task
+
+Summary:
+Total Tasks: 11
+Total Estimated Remaining Effort: 75 hours
+Project: AzureDataBricks
+Generated: 2025-08-16

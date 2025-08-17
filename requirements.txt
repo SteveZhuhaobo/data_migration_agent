@@ -8,3 +8,5 @@ pyyaml
 asyncio
 httpx
 geopandas
+graphviz
+diagrams
