@@ -10,9 +10,9 @@ sql_server:
   server: "localhost"
   database: "Test_Steve"
   driver: "ODBC Driver 17 for SQL Server"
-  use_windows_auth: false  # Uses SQL Server login
-  username: "steve_test"  # The SQL user you created
-  password: "SteveTest!23"  # The password you set
+  use_windows_auth: false # Uses SQL Server login
+  username: "steve_test" # The SQL user you created
+  password: "SteveTest!23" # The password you set
   encrypt: "no"
   trust_server_certificate: "yes"
 
@@ -26,7 +26,7 @@ databricks:
 
 # Azure DevOps Configuration
 azure_devops:
-  organization: "SteveZhu0309"  # Your Azure DevOps organization name
+  organization: "SteveZhu0309" # Your Azure DevOps organization name
 
 # MCP Server Configuration
 mcp_server:

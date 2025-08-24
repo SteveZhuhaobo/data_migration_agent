@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer & Orders Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .dashboard {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 0.85rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .metric-sublabel {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 5px;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .chart-container.large {
+            grid-column: span 2;
+        }
+        
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 20px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        
+        .chart-wrapper.tall {
+            height: 400px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .delivered { background-color: #10b981; }
+        .shipped { background-color: #3b82f6; }
+        .processing { background-color: #f59e0b; }
+        .pending { background-color: #ef4444; }
+        
+        .summary-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .summary-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #4f46e5;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        
+        @media (max-width: 1200px) {
+            .chart-container.large {
+                grid-column: span 1;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2.2rem;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🚀 Customer & Orders Analytics</h1>
+            <p>Comprehensive business insights from your SQL Server database</p>
+        </div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">19</div>
+                <div class="metric-label">Total Customers</div>
+                <div class="metric-sublabel">Active accounts</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">29</div>
+                <div class="metric-label">Total Orders</div>
+                <div class="metric-sublabel">All time</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">$714.85</div>
+                <div class="metric-label">Total Freight</div>
+                <div class="metric-sublabel">Revenue</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">$24.65</div>
+                <div class="metric-label">Avg Freight</div>
+                <div class="metric-sublabel">Per order</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">
+                    <span class="status-indicator delivered"></span>7
+                </div>
+                <div class="metric-label">Delivered</div>
+                <div class="metric-sublabel">Completed orders</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">
+                    <span class="status-indicator shipped"></span>13
+                </div>
+                <div class="metric-label">Shipped</div>
+                <div class="metric-sublabel">In transit</div>
+            </div>
+        </div>
+        
+        <div class="summary-section">
+            <div class="summary-title">📊 Business Performance Overview</div>
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <div class="stat-value">1.53</div>
+                    <div class="stat-label">Orders per Customer</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">69%</div>
+                    <div class="stat-label">Fulfillment Rate</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">11</div>
+                    <div class="stat-label">Countries Served</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">45%</div>
+                    <div class="stat-label">Orders Shipped</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-title">📈 Order Status Distribution</div>
+                <div class="chart-wrapper">
+                    <canvas id="orderStatusChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">💰 Revenue by Order Status</div>
+                <div class="chart-wrapper">
+                    <canvas id="revenueStatusChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container large">
+                <div class="chart-title">🌍 Orders & Revenue by Country</div>
+                <div class="chart-wrapper tall">
+                    <canvas id="countryPerformanceChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">📅 Daily Order Trends</div>
+                <div class="chart-wrapper">
+                    <canvas id="dailyOrdersChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">🎯 Top Performing Countries</div>
+                <div class="chart-wrapper">
+                    <canvas id="topCountriesChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">📦 Customer vs Orders</div>
+                <div class="chart-wrapper">
+                    <canvas id="customerOrdersChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">💸 Freight Distribution</div>
+                <div class="chart-wrapper">
+                    <canvas id="freightDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js configuration
+        Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = '#374151';
+        
+        // Order Status Data
+        const orderStatusData = {
+            labels: ['Shipped', 'Delivered', 'Processing', 'Pending'],
+            datasets: [{
+                data: [13, 7, 5, 4],
+                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+                borderWidth: 3,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Revenue by Status Data
+        const revenueStatusData = {
+            labels: ['Delivered', 'Shipped', 'Processing', 'Pending'],
+            datasets: [{
+                label: 'Revenue ($)',
+                data: [233.55, 213.8, 138.0, 129.5],
+                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                borderRadius: 8,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Country Performance Data
+        const countryPerformanceData = {
+            labels: ['Germany', 'Sweden', 'France', 'USA', 'Mexico', 'Australia', 'Japan', 'UK', 'Brazil', 'Canada', 'Italy'],
+            datasets: [{
+                label: 'Orders',
+                data: [8, 4, 5, 2, 4, 1, 1, 1, 1, 1, 1],
+                backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                borderColor: 'rgba(102, 126, 234, 1)',
+                borderWidth: 2,
+                yAxisID: 'y'
+            }, {
+                label: 'Revenue ($)',
+                data: [93.2, 106.7, 72.85, 84.75, 61.7, 73.2, 67.45, 42.25, 44.7, 36.15, 31.9],
+                backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                borderColor: 'rgba(118, 75, 162, 1)',
+                borderWidth: 2,
+                yAxisID: 'y1'
+            }]
+        };
+        
+        // Daily Orders Data (recent orders only)
+        const dailyOrdersData = {
+            labels: ['Aug 17', 'Aug 18', 'Aug 19', 'Aug 20', 'Aug 21', 'Aug 22', 'Aug 23', 'Aug 24'],
+            datasets: [{
+                label: 'Orders',
+                data: [1, 2, 2, 3, 3, 3, 3, 2],
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }, {
+                label: 'Revenue ($)',
+                data: [19.95, 71.1, 100.25, 120.05, 89.6, 110.85, 94.25, 108.8],
+                borderColor: '#764ba2',
+                backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        };
+        
+        // Top Countries Data
+        const topCountriesData = {
+            labels: ['Germany', 'France', 'Sweden', 'Mexico', 'USA'],
+            datasets: [{
+                data: [8, 5, 4, 4, 2],
+                backgroundColor: [
+                    '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff'
+                ],
+                borderWidth: 3,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Customer vs Orders Data
+        const customerOrdersData = {
+            labels: ['Customers', 'Orders'],
+            datasets: [{
+                data: [19, 29],
+                backgroundColor: ['#667eea', '#764ba2'],
+                borderWidth: 3,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Freight Distribution Data
+        const freightDistributionData = {
+            labels: ['$0-25', '$25-50', '$50-75', '$75+'],
+            datasets: [{
+                data: [15, 9, 3, 2],
+                backgroundColor: [
+                    '#10b981', '#3b82f6', '#f59e0b', '#ef4444'
+                ],
+                borderWidth: 3,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Chart options
+        const pieOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        };
+        
+        const barOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        };
+        
+        const multiAxisOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Orders'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Revenue ($)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        };
+        
+        // Create charts
+        new Chart(document.getElementById('orderStatusChart'), {
+            type: 'doughnut',
+            data: orderStatusData,
+            options: {
+                ...pieOptions,
+                cutout: '60%'
+            }
+        });
+        
+        new Chart(document.getElementById('revenueStatusChart'), {
+            type: 'bar',
+            data: revenueStatusData,
+            options: barOptions
+        });
+        
+        new Chart(document.getElementById('countryPerformanceChart'), {
+            type: 'bar',
+            data: countryPerformanceData,
+            options: multiAxisOptions
+        });
+        
+        new Chart(document.getElementById('dailyOrdersChart'), {
+            type: 'line',
+            data: dailyOrdersData,
+            options: multiAxisOptions
+        });
+        
+        new Chart(document.getElementById('topCountriesChart'), {
+            type: 'pie',
+            data: topCountriesData,
+            options: pieOptions
+        });
+        
+        new Chart(document.getElementById('customerOrdersChart'), {
+            type: 'doughnut',
+            data: customerOrdersData,
+            options: pieOptions
+        });
+        
+        new Chart(document.getElementById('freightDistributionChart'), {
+            type: 'doughnut',
+            data: freightDistributionData,
+            options: pieOptions
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .active { background-color: #10b981; }
+        .inactive { background-color: #ef4444; }
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>📊 Customer Analytics Dashboard</h1>
+            <p>Real-time insights from your SQL Server database</p>
+        </div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">19</div>
+                <div class="metric-label">Total Customers</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">
+                    <span class="status-indicator active"></span>19
+                </div>
+                <div class="metric-label">Active Customers</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">11</div>
+                <div class="metric-label">Countries</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">10</div>
+                <div class="metric-label">Regions</div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-title">🌍 Customers by Country</div>
+                <div class="chart-wrapper">
+                    <canvas id="countryChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">👔 Contact Titles Distribution</div>
+                <div class="chart-wrapper">
+                    <canvas id="titleChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">📈 Customer Status Overview</div>
+                <div class="chart-wrapper">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-title">🏆 Top 5 Countries</div>
+                <div class="chart-wrapper">
+                    <canvas id="topCountriesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js configuration
+        Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = '#374151';
+        
+        // Country distribution data
+        const countryData = {
+            labels: ['France', 'Germany', 'Sweden', 'Mexico', 'USA', 'UK', 'Australia', 'Brazil', 'Canada', 'Italy', 'Japan'],
+            datasets: [{
+                data: [3, 3, 3, 2, 2, 1, 1, 1, 1, 1, 1],
+                backgroundColor: [
+                    '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff',
+                    '#ff9f40', '#ff6384', '#c9cbcf', '#4bc0c0', '#36a2eb', '#ffce56'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Contact titles data (top 8)
+        const titleData = {
+            labels: ['Marketing Manager', 'Sales Rep', 'Order Admin', 'Owner', 'Product Manager', 'Quality Control', 'Sales Manager', 'CEO'],
+            datasets: [{
+                data: [3, 2, 2, 2, 1, 1, 1, 1],
+                backgroundColor: [
+                    '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Status data
+        const statusData = {
+            labels: ['Active', 'Inactive'],
+            datasets: [{
+                data: [19, 0],
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderWidth: 3,
+                borderColor: '#fff'
+            }]
+        };
+        
+        // Top countries data
+        const topCountriesData = {
+            labels: ['France', 'Germany', 'Sweden', 'Mexico', 'USA'],
+            datasets: [{
+                label: 'Customers',
+                data: [3, 3, 3, 2, 2],
+                backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                borderColor: 'rgba(102, 126, 234, 1)',
+                borderWidth: 2,
+                borderRadius: 8
+            }]
+        };
+        
+        // Chart options
+        const pieOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        };
+        
+        const barOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        };
+        
+        // Create charts
+        new Chart(document.getElementById('countryChart'), {
+            type: 'doughnut',
+            data: countryData,
+            options: pieOptions
+        });
+        
+        new Chart(document.getElementById('titleChart'), {
+            type: 'pie',
+            data: titleData,
+            options: pieOptions
+        });
+        
+        new Chart(document.getElementById('statusChart'), {
+            type: 'doughnut',
+            data: statusData,
+            options: {
+                ...pieOptions,
+                cutout: '60%'
+            }
+        });
+        
+        new Chart(document.getElementById('topCountriesChart'), {
+            type: 'bar',
+            data: topCountriesData,
+            options: barOptions
+        });
+    </script>
+</body>
+</html>
