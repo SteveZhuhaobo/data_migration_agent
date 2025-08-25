@@ -21,7 +21,7 @@
     "sql-server": {
       "command": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\dm_steve\\Scripts\\python.exe",
       "args": [
-        "SQL_MCP.py"
+        "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\SQL_MCP.py"
       ],
       "disabled": false,
       "autoApprove": [
@@ -33,12 +33,12 @@
     "databricks": {
       "command": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\dm_steve\\Scripts\\python.exe",
       "args": [
-        "Databricks_MCP.py"
+        "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\Databricks_MCP.py"
       ],
       "disabled": false,
       "autoApprove": [
         "list_catalogs",
-        "list_schemas", 
+        "list_schemas",
         "list_tables",
         "get_table_schema",
         "describe_table",

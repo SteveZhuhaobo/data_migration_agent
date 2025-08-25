@@ -23,7 +23,12 @@ def load_config():
     global config
     
     try:
-        with open("config/config.yaml", 'r') as f:
+        # Get the directory where this script is located
+        import os
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(script_dir, "config", "config.yaml")
+        
+        with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
             
         # Validate required Databricks configuration fields
@@ -44,7 +49,7 @@ def load_config():
             databricks_config['schema'] = 'default'
             
     except FileNotFoundError:
-        raise Exception("Configuration file 'config/config.yaml' not found")
+        raise Exception(f"Configuration file not found at: {config_path}")
     except yaml.YAMLError as e:
         raise Exception(f"Error parsing YAML configuration file: {str(e)}")
     except Exception as e:
