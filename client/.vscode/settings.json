@@ -1,0 +1,4 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/../dm_client/Scripts/python.exe",
+    "kiroAgent.configureMCP": "Enabled"
+  }

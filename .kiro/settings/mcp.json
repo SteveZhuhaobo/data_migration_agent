@@ -48,6 +48,19 @@
         "list_jobs",
         "get_job_run_status"
       ]
+    },
+    "web-search": {
+      "command": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\dm_steve\\Scripts\\python.exe",
+      "args": [
+        "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\WebSearch_MCP.py"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "search_web",
+        "get_webpage_content",
+        "search_news",
+        "get_page_summary"
+      ]
     }
   }
 }

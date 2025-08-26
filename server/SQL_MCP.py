@@ -128,14 +128,7 @@ async def list_tools() -> List[Tool]:
                 "type": "object",
                 "properties": {
                     "table_name": {"type": "string", "description": "Name of the table"},
-                    "data": {
-                        "type": "array", 
-                        "description": "Array of row objects to insert",
-                        "items": {
-                            "type": "object",
-                            "description": "Row data as key-value pairs"
-                        }
-                    }
+                    "data": {"type": "array", "description": "Array of row objects to insert"}
                 },
                 "required": ["table_name", "data"]
             }
