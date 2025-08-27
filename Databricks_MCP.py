@@ -81,27 +81,54 @@ def validate_connection():
         raise Exception(f"Connection validation failed: {str(e)}")
 
 def get_sql_connection():
-    """Create Databricks SQL connection with error handling and retries"""
+    """Create Databricks SQL connection with error handling and retries for serverless warehouses"""
     try:
-        from databricks import sql
+        # Check if databricks-sql-connector is available
+        try:
+            from databricks import sql
+        except ImportError:
+            raise Exception("databricks-sql-connector package not installed. Please install it with: pip install databricks-sql-connector")
         
-        databricks_config = config['databricks']
+        if config is None:
+            raise Exception("Configuration not loaded. Please check config.yaml file.")
+            
+        databricks_config = config.get('databricks', {})
+        if not databricks_config:
+            raise Exception("Databricks configuration not found in config.yaml")
         
         # Validate configuration before attempting connection
         validate_connection()
         
+        # Extended timeout for serverless warehouse cold starts
         connection = sql.connect(
             server_hostname=databricks_config['server_hostname'],
             http_path=databricks_config['http_path'],
             access_token=databricks_config['access_token'],
-            _user_agent_entry="databricks-mcp-server/1.0"
+            _user_agent_entry="databricks-mcp-server/1.0",
+            # Extended timeouts for serverless warehouses
+            _connect_timeout=120,  # 2 minutes for connection
+            _socket_timeout=300    # 5 minutes for query execution
         )
         
-        # Test the connection
-        cursor = connection.cursor()
-        cursor.execute("SELECT 1")
-        cursor.fetchone()
-        cursor.close()
+        # Test the connection with retry logic for cold starts
+        max_retries = 3
+        retry_delay = 10  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                cursor = connection.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+                cursor.close()
+                break  # Success, exit retry loop
+            except Exception as e:
+                if attempt < max_retries - 1 and ("timeout" in str(e).lower() or "warehouse" in str(e).lower()):
+                    print(f"Connection attempt {attempt + 1} failed (likely cold start), retrying in {retry_delay}s...")
+                    import time
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    raise e
         
         return connection
         
@@ -130,8 +157,8 @@ def get_rest_client():
             'User-Agent': 'databricks-mcp-server/1.0'
         })
         
-        # Set timeout for requests
-        session.timeout = 30
+        # Extended timeout for serverless warehouse operations
+        session.timeout = 120  # 2 minutes for REST API calls
         
         # Test the connection with a simple API call
         base_url = f"https://{databricks_config['server_hostname']}"
@@ -165,6 +192,45 @@ def get_full_table_name(table_name: str, catalog: Optional[str] = None, schema: 
     schema = schema or databricks_config.get('schema', 'default')
     
     return f"{catalog}.{schema}.{table_name}"
+
+def check_warehouse_status():
+    """Check if the serverless warehouse is running and start it if needed"""
+    try:
+        session, base_url = get_rest_client()
+        databricks_config = config['databricks']
+        
+        # Extract warehouse ID from http_path
+        # Format: /sql/1.0/warehouses/{warehouse_id}
+        http_path = databricks_config['http_path']
+        if '/warehouses/' in http_path:
+            warehouse_id = http_path.split('/warehouses/')[-1]
+            
+            # Get warehouse status
+            response = session.get(f"{base_url}/api/2.0/sql/warehouses/{warehouse_id}")
+            if response.status_code == 200:
+                warehouse_data = response.json()
+                state = warehouse_data.get('state', 'UNKNOWN')
+                
+                if state in ['STOPPED', 'STOPPING']:
+                    print(f"Warehouse is {state}, starting it...")
+                    # Start the warehouse
+                    start_response = session.post(f"{base_url}/api/2.0/sql/warehouses/{warehouse_id}/start")
+                    if start_response.status_code == 200:
+                        print("Warehouse start request sent successfully")
+                        return True, "Warehouse starting"
+                    else:
+                        return False, f"Failed to start warehouse: {start_response.text}"
+                elif state == 'RUNNING':
+                    return True, "Warehouse is running"
+                else:
+                    return True, f"Warehouse state: {state}"
+            else:
+                return False, f"Failed to get warehouse status: {response.text}"
+        else:
+            return True, "Cannot determine warehouse ID from http_path"
+            
+    except Exception as e:
+        return False, f"Error checking warehouse status: {str(e)}"
 
 @server.list_tools()
 async def list_tools() -> List[Tool]:
@@ -319,6 +385,22 @@ async def list_tools() -> List[Tool]:
                 },
                 "required": ["run_id"]
             }
+        ),
+        Tool(
+            name="check_warehouse_status",
+            description="Check the status of the serverless warehouse and start it if needed",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="ping",
+            description="Simple ping test to check if the MCP server is responsive",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
         )
     ]
 
@@ -373,6 +455,10 @@ async def call_tool(name: str, arguments: Optional[Dict[str, Any]] = None) -> Li
             result = await run_job(arguments["job_id"])
         elif name == "get_job_run_status":
             result = await get_job_run_status(arguments["run_id"])
+        elif name == "check_warehouse_status":
+            result = await check_warehouse_status_tool()
+        elif name == "ping":
+            result = await ping_tool()
         else:
             result = f"Unknown tool: {name}"
         
@@ -386,6 +472,15 @@ async def call_tool(name: str, arguments: Optional[Dict[str, Any]] = None) -> Li
 async def execute_query(query: str) -> str:
     """Execute a SQL query on Databricks"""
     try:
+        # Check warehouse status first for serverless warehouses
+        warehouse_ok, warehouse_msg = check_warehouse_status()
+        if not warehouse_ok:
+            return json.dumps({
+                "success": False,
+                "error": f"Warehouse check failed: {warehouse_msg}",
+                "error_type": "WarehouseError"
+            }, indent=2)
+        
         connection = get_sql_connection()
         cursor = connection.cursor()
         
@@ -890,23 +985,56 @@ async def get_job_run_status(run_id: str) -> str:
             "error_type": type(e).__name__
         }, indent=2)
 
+async def check_warehouse_status_tool() -> str:
+    """Tool wrapper for checking warehouse status"""
+    try:
+        warehouse_ok, warehouse_msg = check_warehouse_status()
+        return json.dumps({
+            "success": warehouse_ok,
+            "message": warehouse_msg,
+            "status": "running" if warehouse_ok else "error"
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }, indent=2)
+
+async def ping_tool() -> str:
+    """Simple ping test to verify MCP server is responsive"""
+    import time
+    start_time = time.time()
+    
+    try:
+        # Simple test that doesn't require Databricks connection
+        response_time = round((time.time() - start_time) * 1000, 2)
+        
+        return json.dumps({
+            "success": True,
+            "message": "Pong! MCP server is responsive",
+            "response_time_ms": response_time,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__
+        }, indent=2)
+
 async def main():
     """Main server entry point"""
     try:
-        # Load and validate configuration
-        load_config()
-        print("Configuration loaded successfully", flush=True)
-        
-        # Validate connection (optional - will be done on first use)
+        # Load and validate configuration (silently)
         try:
-            validate_connection()
-            print("Configuration validation passed", flush=True)
+            load_config()
         except Exception as e:
-            print(f"Configuration validation warning: {e}", flush=True)
-        
+            # Don't exit - let the server start anyway and fail gracefully on tool calls
+            pass
+            
         # Run the server
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-            print("Databricks MCP Server starting...", flush=True)
             await server.run(
                 read_stream,
                 write_stream,
@@ -914,7 +1042,11 @@ async def main():
             )
             
     except Exception as e:
-        print(f"Failed to start Databricks MCP Server: {e}", flush=True)
+        # Log to stderr instead of stdout to avoid interfering with JSON-RPC
+        import sys
+        import traceback
+        print(f"Failed to start Databricks MCP Server: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
         raise
 
 if __name__ == "__main__":

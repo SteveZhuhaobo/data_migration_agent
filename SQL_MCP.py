@@ -139,6 +139,14 @@ async def list_tools() -> List[Tool]:
                 },
                 "required": ["table_name", "data"]
             }
+        ),
+        Tool(
+            name="test_connection",
+            description="Test the SQL Server connection and return basic info",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
         )
     ]
 
@@ -159,6 +167,8 @@ async def call_tool(name: str, arguments: Optional[Dict[str, Any]] = None) -> Li
             result = await create_table(arguments["table_name"], arguments["columns"])
         elif name == "insert_data":
             result = await insert_data(arguments["table_name"], arguments["data"])
+        elif name == "test_connection":
+            result = await test_connection()
         else:
             result = f"Unknown tool: {name}"
         
@@ -262,6 +272,11 @@ async def list_tables() -> str:
         conn = get_connection()
         cursor = conn.cursor()
         
+        # First, verify we're connected to the right database
+        cursor.execute("SELECT DB_NAME() as current_database")
+        current_db = cursor.fetchone()[0]
+        
+        # Use a more explicit query that doesn't rely on default schema context
         query = """
         SELECT 
             TABLE_SCHEMA,
@@ -287,6 +302,8 @@ async def list_tables() -> str:
         conn.close()
         
         return json.dumps({
+            "success": True,
+            "current_database": current_db,
             "tables": tables,
             "count": len(tables)
         }, indent=2)
@@ -355,6 +372,36 @@ async def insert_data(table_name: str, data: List[Dict]) -> str:
             "success": True,
             "message": f"Inserted {rows_inserted} rows into '{table_name}'",
             "rows_inserted": rows_inserted
+        }, indent=2)
+        
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e)
+        }, indent=2)
+
+async def test_connection() -> str:
+    """Test SQL Server connection and return basic database info"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Get basic database info
+        cursor.execute("SELECT DB_NAME() as current_database, USER_NAME() as database_user, @@VERSION as sql_version")
+        info = cursor.fetchone()
+        
+        # Get schema list
+        cursor.execute("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY SCHEMA_NAME")
+        schemas = [row[0] for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return json.dumps({
+            "success": True,
+            "current_database": info[0],
+            "database_user": info[1],
+            "sql_version": info[2][:100] + "..." if len(info[2]) > 100 else info[2],  # Truncate version string
+            "available_schemas": schemas
         }, indent=2)
         
     except Exception as e:

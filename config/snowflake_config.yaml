@@ -1,0 +1,68 @@
+# Snowflake MCP Server Configuration
+# Copy this file to config/config.yaml and update with your settings
+
+snowflake:
+  # Required: Snowflake account identifier
+  # Format: account_name.region (e.g., "mycompany.us-east-1")
+  # Or full URL: account_name.region.snowflakecomputing.com
+  account: "MZLGTMY-ZL90213.snowflakecomputing.com"
+  
+  # Required: Snowflake username
+  user: "stevezhu"
+  
+  # Authentication Method 1: Username/Password
+  # Provide password here or via SNOWFLAKE_PASSWORD environment variable
+  password: "TjU9818@8384858"
+  
+  # Authentication Method 2: Key Pair Authentication
+  # Uncomment and configure for key pair authentication
+  # private_key_path: "/path/to/your/private_key.p8"
+  # private_key_passphrase: "your-key-passphrase"  # optional if key is encrypted
+  
+  # Optional: Default connection settings
+  # These will be used when not specified in tool calls
+  database: "steve_mcp"
+  schema: "data_migration"
+  warehouse: "compute_wh"
+  role: "sysadmin"  # optional
+  
+  # Connection Settings
+  # Query timeout in seconds (default: 120)
+  timeout: 120
+  
+  # Maximum number of retry attempts for failed requests (default: 3)
+  max_retries: 3
+  
+  # Initial retry delay in seconds (default: 5)
+  retry_delay: 5
+  
+  # Connection Pool Settings
+  # Maximum number of connections in pool (default: 5)
+  pool_size: 5
+  
+  # Pool timeout in seconds (default: 30)
+  pool_timeout: 30
+
+# Example configurations for different authentication methods:
+
+# Username/Password Authentication:
+# snowflake:
+#   account: "mycompany.us-east-1.snowflakecomputing.com"
+#   user: "john_doe"
+#   password: "${SNOWFLAKE_PASSWORD}"  # Use environment variable
+#   database: "ANALYTICS_DB"
+#   schema: "PUBLIC"
+#   warehouse: "COMPUTE_WH"
+#   role: "ANALYST_ROLE"
+
+# Key Pair Authentication:
+# snowflake:
+#   account: "mycompany.us-east-1.snowflakecomputing.com"
+#   user: "service_account"
+#   private_key_path: "/secure/keys/snowflake_private_key.p8"
+#   private_key_passphrase: "${SNOWFLAKE_KEY_PASSPHRASE}"
+#   database: "PROD_DB"
+#   schema: "ANALYTICS"
+#   warehouse: "ETL_WH"
+#   timeout: 300
+#   max_retries: 5

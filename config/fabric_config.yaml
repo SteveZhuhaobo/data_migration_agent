@@ -1,0 +1,44 @@
+# Microsoft Fabric MCP Server Configuration
+# Copy this file to config/config.yaml and update with your settings
+
+fabric:
+  # Azure Active Directory Configuration
+  # Required: Your Azure AD tenant ID (GUID format)
+  tenant_id: "your-tenant-id-here"
+  
+  # Required: Service principal client ID (GUID format)
+  client_id: "your-client-id-here"
+  
+  # Required: Service principal client secret
+  # Can be provided here or via FABRIC_CLIENT_SECRET environment variable
+  # For security, it's recommended to use the environment variable
+  client_secret: "your-client-secret-here"
+  
+  # Optional: Default workspace ID to use when not specified
+  # If not provided, you'll need to specify workspace_id in tool calls
+  workspace_id: "your-default-workspace-id"
+  
+  # Optional: Default lakehouse name/ID
+  default_lakehouse: "your-default-lakehouse"
+  
+  # Optional: Default warehouse name/ID  
+  default_warehouse: "your-default-warehouse"
+  
+  # Connection Settings
+  # Request timeout in seconds (default: 120)
+  timeout: 120
+  
+  # Maximum number of retry attempts for failed requests (default: 3)
+  max_retries: 3
+  
+  # Initial retry delay in seconds (default: 5)
+  retry_delay: 5
+
+# Example configuration for development/testing
+# fabric:
+#   tenant_id: "12345678-1234-1234-1234-123456789012"
+#   client_id: "87654321-4321-4321-4321-210987654321"
+#   client_secret: "${FABRIC_CLIENT_SECRET}"  # Use environment variable
+#   workspace_id: "abcdef12-3456-7890-abcd-ef1234567890"
+#   timeout: 60
+#   max_retries: 2

@@ -1,0 +1,36 @@
+# Microsoft Fabric MCP Server Dependencies
+
+# Core MCP framework
+mcp>=1.0.0
+
+# Azure authentication and identity
+azure-identity>=1.15.0
+azure-core>=1.29.0
+
+# HTTP requests
+requests>=2.31.0
+
+# Configuration parsing
+pyyaml>=6.0.1
+
+# Type hints support
+typing-extensions>=4.8.0
+
+# Optional dependencies for enhanced functionality
+# Uncomment as needed:
+
+# For secure credential storage
+# azure-keyvault-secrets>=4.7.0
+
+# For metrics collection
+# prometheus-client>=0.19.0
+
+# Alternative HTTP client (can replace requests)
+# httpx>=0.25.0
+
+# Development dependencies (for testing and development)
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# pytest-mock>=3.12.0
+# black>=23.0.0
+# mypy>=1.7.0

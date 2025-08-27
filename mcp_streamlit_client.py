@@ -12,6 +12,8 @@ import logging
 import threading
 import queue
 import time
+import pandas as pd
+import select
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -59,13 +61,25 @@ class SimpleMCPClient:
             
             logger.info(f"Starting MCP server: {self.command} {' '.join(self.args)}")
             
+            # Windows-specific subprocess settings
+            startupinfo = None
+            creationflags = 0
+            if sys.platform == "win32":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+                creationflags = subprocess.CREATE_NO_WINDOW
+            
             self.process = subprocess.Popen(
                 [self.command] + self.args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=os.path.dirname(self.args[0])
+                bufsize=1,  # Line buffered
+                cwd=os.path.dirname(self.args[0]),
+                startupinfo=startupinfo,
+                creationflags=creationflags
             )
             
             logger.info(f"MCP server started with PID: {self.process.pid}")
@@ -182,29 +196,113 @@ class SimpleMCPClient:
     
     def _send_request(self, request: Dict[str, Any]):
         """Send a JSON-RPC request to the MCP server"""
-        if self.process and self.process.stdin:
+        if not self.process or not self.process.stdin:
+            raise Exception("No process or stdin available")
+        
+        try:
+            # Check if process is still alive
+            if self.process.poll() is not None:
+                raise Exception("MCP server process has terminated")
+            
             message = json.dumps(request) + "\n"
             self.process.stdin.write(message)
             self.process.stdin.flush()
+            logger.debug(f"Sent request: {request}")
+            
+        except Exception as e:
+            logger.error(f"Error sending request: {e}")
+            raise
     
-    def _read_response(self) -> Optional[Dict[str, Any]]:
-        """Read a response from the MCP server"""
-        if self.process and self.process.stdout:
-            try:
-                line = self.process.stdout.readline()
-                if line:
-                    response = json.loads(line.strip())
-                    return response
-            except Exception as e:
-                logger.error(f"Error reading response: {e}")
-        return None
+    def _read_response(self, timeout: int = 30) -> Optional[Dict[str, Any]]:
+        """Read a response from the MCP server with simple timeout"""
+        if not self.process or not self.process.stdout:
+            return {"error": "No process or stdout available"}
+        
+        try:
+            # Check if process is still alive
+            if self.process.poll() is not None:
+                return {"error": "Process has terminated"}
+            
+            # Simple blocking read with timeout using select (Unix) or polling (Windows)
+            import sys
+            if sys.platform == "win32":
+                # Windows: use simple readline with basic timeout
+                import time
+                start_time = time.time()
+                while time.time() - start_time < timeout:
+                    if self.process.poll() is not None:
+                        return {"error": "Process terminated"}
+                    
+                    # Try to read with a short timeout
+                    try:
+                        line = self.process.stdout.readline()
+                        if line:
+                            line = line.strip()
+                            if line:
+                                try:
+                                    response = json.loads(line)
+                                    return response
+                                except json.JSONDecodeError as e:
+                                    logger.error(f"Invalid JSON response: {line}")
+                                    return {"error": f"Invalid JSON: {str(e)}"}
+                        time.sleep(0.1)  # Small delay to prevent busy waiting
+                    except Exception as e:
+                        logger.error(f"Error reading line: {e}")
+                        return {"error": f"Read error: {str(e)}"}
+                
+                return {"error": f"Timeout after {timeout} seconds"}
+            else:
+                # Unix: use select for proper timeout
+                import select
+                ready, _, _ = select.select([self.process.stdout], [], [], timeout)
+                if ready:
+                    line = self.process.stdout.readline()
+                    if line:
+                        line = line.strip()
+                        if line:
+                            try:
+                                response = json.loads(line)
+                                return response
+                            except json.JSONDecodeError as e:
+                                logger.error(f"Invalid JSON response: {line}")
+                                return {"error": f"Invalid JSON: {str(e)}"}
+                    return {"error": "Empty response"}
+                else:
+                    return {"error": f"Timeout after {timeout} seconds"}
+                    
+        except Exception as e:
+            logger.error(f"Error reading response: {e}")
+            return {"error": f"Error reading response: {str(e)}"}
     
     def close(self):
         """Close the MCP server connection"""
         if self.process:
-            self.process.terminate()
-            self.process.wait()
-            self.connected = False
+            try:
+                # Close stdin first to signal shutdown
+                if self.process.stdin:
+                    self.process.stdin.close()
+                
+                # First try graceful termination
+                self.process.terminate()
+                
+                # Wait up to 5 seconds for graceful shutdown
+                try:
+                    self.process.wait(timeout=5)
+                    logger.info("MCP server terminated gracefully")
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't terminate gracefully
+                    logger.warning("MCP server didn't terminate gracefully, force killing...")
+                    self.process.kill()
+                    try:
+                        self.process.wait(timeout=2)
+                        logger.info("MCP server force killed")
+                    except subprocess.TimeoutExpired:
+                        logger.error("Failed to kill MCP server process")
+            except Exception as e:
+                logger.error(f"Error closing MCP server: {e}")
+            finally:
+                self.connected = False
+                self.process = None
 
 class AzureOpenAIClient:
     def __init__(self, api_key: str, api_version: str, azure_endpoint: str, deployment_name: str):
@@ -250,6 +348,14 @@ def main():
     st.title("🔗 MCP Client with Azure OpenAI")
     st.write("Simple MCP client to interact with your SQL Server MCP using Azure OpenAI")
     
+    # Initialize session state first
+    if "mcp_clients" not in st.session_state:
+        st.session_state.mcp_clients = {}  # Dictionary to store multiple clients
+    if "azure_client" not in st.session_state:
+        st.session_state.azure_client = None
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
     # Load configuration from config.yaml
     config = load_config()
     
@@ -283,29 +389,49 @@ def main():
         current_dir = os.path.dirname(os.path.abspath(__file__))
         default_python_path = os.path.join(current_dir, "dm_steve", "Scripts", "python.exe")
         
-        # MCP Server Selection
+        # MCP Server Configuration
         mcp_server_options = {
             "SQL Server": os.path.join(current_dir, "SQL_MCP.py"),
             "Databricks": os.path.join(current_dir, "Databricks_MCP.py"),
             "Web Search": os.path.join(current_dir, "WebSearch_MCP.py")
         }
         
-        selected_server = st.selectbox(
-            "Select MCP Server",
-            options=list(mcp_server_options.keys()),
-            key="selected_mcp_server"
-        )
-        
         mcp_command = st.text_input(
             "Python Executable Path",
             value=default_python_path,
             key="mcp_command"
         )
-        mcp_script = st.text_input(
-            "MCP Script Path", 
-            value=mcp_server_options[selected_server],
-            key="mcp_script"
-        )
+        
+        st.write("**Connect to Multiple MCP Servers:**")
+        
+        # Show connection status for each server
+        for server_name, script_path in mcp_server_options.items():
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                is_connected = server_name in st.session_state.mcp_clients and st.session_state.mcp_clients[server_name].connected
+                status = "🟢 Connected" if is_connected else "🔴 Disconnected"
+                st.write(f"{server_name}: {status}")
+            
+            with col2:
+                if is_connected:
+                    if st.button(f"Disconnect", key=f"disconnect_{server_name}"):
+                        st.session_state.mcp_clients[server_name].close()
+                        del st.session_state.mcp_clients[server_name]
+                        st.rerun()
+                else:
+                    if st.button(f"Connect", key=f"connect_{server_name}"):
+                        with st.spinner(f"Connecting to {server_name}..."):
+                            try:
+                                client = SimpleMCPClient(mcp_command, [script_path])
+                                success, message = client.start()
+                                if success:
+                                    st.session_state.mcp_clients[server_name] = client
+                                    st.success(f"✅ Connected to {server_name}")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Failed to connect to {server_name}: {message}")
+                            except Exception as e:
+                                st.error(f"❌ Error connecting to {server_name}: {e}")
         
         # Show loaded configuration for debugging
         if config:
@@ -319,51 +445,28 @@ def main():
                     },
                     "Paths": {
                         "python_executable": mcp_command,
-                        "mcp_script": mcp_script
+                        "available_servers": list(mcp_server_options.keys())
                     }
                 })
+        
+        # Clear History Button
+        st.subheader("Chat History")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Clear History"):
+                st.session_state.messages = []
+                st.success("Chat history cleared!")
+                st.rerun()
+        
+        with col2:
+            message_count = len(st.session_state.messages)
+            st.write(f"📝 {message_count} messages")
+
     
-    # Initialize session state
-    if "mcp_client" not in st.session_state:
-        st.session_state.mcp_client = None
-    if "azure_client" not in st.session_state:
-        st.session_state.azure_client = None
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "mcp_connected" not in st.session_state:
-        st.session_state.mcp_connected = False
-    
-    # Connection status
+    # Azure OpenAI Connection
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("Connect to MCP Server"):
-            if mcp_command and mcp_script:
-                with st.spinner("Connecting to MCP server..."):
-                    try:
-                        st.session_state.mcp_client = SimpleMCPClient(mcp_command, [mcp_script])
-                        success, message = st.session_state.mcp_client.start()
-                        if success:
-                            st.session_state.mcp_connected = True
-                            st.success(f"✅ {message}")
-                            st.rerun()
-                        else:
-                            st.error(f"❌ {message}")
-                            # Show additional debug info
-                            with st.expander("Debug Information"):
-                                st.write(f"**Command:** `{mcp_command}`")
-                                st.write(f"**Script:** `{mcp_script}`")
-                                st.write(f"**Working Directory:** `{os.path.dirname(mcp_script)}`")
-                    except Exception as e:
-                        st.error(f"❌ Error: {e}")
-                        with st.expander("Debug Information"):
-                            st.write(f"**Command:** `{mcp_command}`")
-                            st.write(f"**Script:** `{mcp_script}`")
-                            st.write(f"**Exception:** `{str(e)}`")
-            else:
-                st.error("Please provide MCP server configuration")
-    
-    with col2:
         if st.button("Initialize Azure OpenAI"):
             if all([azure_api_key, azure_endpoint, deployment_name]):
                 try:
@@ -376,32 +479,33 @@ def main():
             else:
                 st.error("Please provide Azure OpenAI configuration")
     
-    # Connection status indicators
-    col_status1, col_status2 = st.columns(2)
-    with col_status1:
-        if st.session_state.mcp_connected:
-            st.success("🟢 MCP Server Connected")
-        else:
-            st.error("🔴 MCP Server Disconnected")
-    
-    with col_status2:
+    with col2:
         if st.session_state.azure_client:
             st.success("🟢 Azure OpenAI Ready")
         else:
             st.error("🔴 Azure OpenAI Not Configured")
     
-    # Show available tools if connected
-    if st.session_state.mcp_connected and st.session_state.mcp_client:
+    # Overall connection status
+    connected_servers = len(st.session_state.mcp_clients)
+    if connected_servers > 0:
+        st.success(f"🟢 {connected_servers} MCP Server(s) Connected - Full functionality available")
+    else:
+        st.info("💬 No MCP Servers Connected - General chat available, connect servers for database/web tools")
+    
+    # Show available tools from all connected servers
+    if st.session_state.mcp_clients:
         st.subheader("Available MCP Tools")
-        if st.session_state.mcp_client.tools:
-            for tool in st.session_state.mcp_client.tools:
-                with st.expander(f"🔧 {tool['name']}"):
-                    st.write(f"**Description:** {tool.get('description', 'No description')}")
-                    if 'inputSchema' in tool:
-                        st.write("**Parameters:**")
-                        st.json(tool['inputSchema'])
-        else:
-            st.write("No tools available or not yet loaded.")
+        for server_name, client in st.session_state.mcp_clients.items():
+            if client.connected and client.tools:
+                st.write(f"**{server_name} Tools:**")
+                for tool in client.tools:
+                    with st.expander(f"🔧 {tool['name']} ({server_name})"):
+                        st.write(f"**Description:** {tool.get('description', 'No description')}")
+                        if 'inputSchema' in tool:
+                            st.write("**Parameters:**")
+                            st.json(tool['inputSchema'])
+    else:
+        st.write("No MCP servers connected.")
     
     # Chat interface
     st.subheader("💬 Chat with your SQL Server")
@@ -412,11 +516,7 @@ def main():
             st.write(message["content"])
     
     # Chat input
-    if prompt := st.chat_input("Ask about your database..."):
-        if not st.session_state.mcp_connected:
-            st.error("Please connect to MCP server first!")
-            st.stop()
-        
+    if prompt := st.chat_input("Ask questions, or connect MCP servers for database/web search capabilities..."):
         if not st.session_state.azure_client:
             st.error("Please initialize Azure OpenAI first!")
             st.stop()
@@ -426,47 +526,203 @@ def main():
         with st.chat_message("user"):
             st.write(prompt)
         
-        # Prepare tools for OpenAI
-        openai_tools = convert_mcp_tools_to_openai_format(st.session_state.mcp_client.tools)
+        # Collect all tools from all connected servers (if any)
+        all_tools = []
+        if st.session_state.mcp_clients:
+            for server_name, client in st.session_state.mcp_clients.items():
+                if client.connected and client.tools:
+                    # Sanitize server name for tool naming (remove spaces and special chars)
+                    sanitized_server_name = server_name.replace(" ", "_").replace("-", "_")
+                    # Add server name to tool names to avoid conflicts
+                    for tool in client.tools:
+                        tool_copy = tool.copy()
+                        tool_copy['server_name'] = server_name
+                        tool_copy['original_name'] = tool['name']
+                        tool_copy['name'] = f"{sanitized_server_name}_{tool['name']}"
+                        all_tools.append(tool_copy)
+        
+        # Prepare tools for OpenAI (empty list if no MCP servers connected)
+        openai_tools = convert_mcp_tools_to_openai_format(all_tools)
         
         # Get response from Azure OpenAI
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
+                    # Show different messages based on MCP availability
+                    if st.session_state.mcp_clients:
+                        st.write("🤖 Calling Azure OpenAI with MCP tools...")
+                    else:
+                        st.write("🤖 Calling Azure OpenAI (no MCP servers connected - general chat only)...")
+                    
                     response = st.session_state.azure_client.chat_with_tools(
                         st.session_state.messages, 
                         openai_tools
                     )
+                    st.write("✅ Got response from Azure OpenAI")
                     
                     if response and response.choices:
                         message = response.choices[0].message
                         
                         # Check if the model wants to call a tool
                         if message.tool_calls:
-                            for tool_call in message.tool_calls:
-                                tool_name = tool_call.function.name
-                                tool_args = json.loads(tool_call.function.arguments)
+                            # Check if we have any MCP servers to handle tool calls
+                            if not st.session_state.mcp_clients:
+                                st.warning("🔧 The AI wanted to use tools, but no MCP servers are connected.")
+                                st.info("💡 Connect to MCP servers (SQL Server, Databricks, Web Search) to enable tool functionality.")
                                 
-                                st.write(f"🔧 Calling tool: {tool_name}")
-                                st.write(f"Arguments: {tool_args}")
+                                # Add the assistant's tool call message to conversation (required by OpenAI API)
+                                st.session_state.messages.append({
+                                    "role": "assistant", 
+                                    "content": message.content or "",
+                                    "tool_calls": [
+                                        {
+                                            "id": tc.id,
+                                            "type": "function",
+                                            "function": {
+                                                "name": tc.function.name,
+                                                "arguments": tc.function.arguments
+                                            }
+                                        } for tc in message.tool_calls
+                                    ]
+                                })
                                 
-                                # Call the MCP tool
-                                tool_response = st.session_state.mcp_client.call_tool(tool_name, tool_args)
+                                # Add tool response messages for each tool call (required by OpenAI API)
+                                for tool_call in message.tool_calls:
+                                    error_response = {
+                                        "error": "No MCP servers connected. Please connect to MCP servers to use tools.",
+                                        "available_servers": ["SQL Server", "Databricks", "Web Search"]
+                                    }
+                                    st.session_state.messages.append({
+                                        "role": "tool",
+                                        "tool_call_id": tool_call.id,
+                                        "content": json.dumps(error_response, indent=2)
+                                    })
                                 
-                                if tool_response and "result" in tool_response:
-                                    st.write("**Result:**")
-                                    if isinstance(tool_response["result"], dict) and "content" in tool_response["result"]:
-                                        for content in tool_response["result"]["content"]:
-                                            if content.get("type") == "text":
-                                                st.write(content["text"])
+                                # Now get a follow-up response from the AI to explain the situation
+                                try:
+                                    follow_up_response = st.session_state.azure_client.chat_with_tools(
+                                        st.session_state.messages, 
+                                        []  # No tools for follow-up
+                                    )
+                                    if follow_up_response and follow_up_response.choices:
+                                        follow_up_content = follow_up_response.choices[0].message.content
+                                        st.write(follow_up_content)
+                                        st.session_state.messages.append({"role": "assistant", "content": follow_up_content})
                                     else:
-                                        st.json(tool_response["result"])
+                                        # Fallback response
+                                        helpful_response = "I'd like to help you with that, but I need access to MCP servers to perform database queries, web searches, or other tool-based operations. Please connect to the appropriate MCP servers in the sidebar to enable these capabilities."
+                                        st.write(helpful_response)
+                                        st.session_state.messages.append({"role": "assistant", "content": helpful_response})
+                                except Exception as e:
+                                    # Fallback response if follow-up fails
+                                    helpful_response = "I'd like to help you with that, but I need access to MCP servers to perform database queries, web searches, or other tool-based operations. Please connect to the appropriate MCP servers in the sidebar to enable these capabilities."
+                                    st.write(helpful_response)
+                                    st.session_state.messages.append({"role": "assistant", "content": helpful_response})
+                            else:
+                                # Add the assistant's tool call message to conversation
+                                st.session_state.messages.append({
+                                    "role": "assistant", 
+                                    "content": message.content or "",
+                                    "tool_calls": [
+                                        {
+                                            "id": tc.id,
+                                            "type": "function",
+                                            "function": {
+                                                "name": tc.function.name,
+                                                "arguments": tc.function.arguments
+                                            }
+                                        } for tc in message.tool_calls
+                                    ]
+                                })
+                                
+                                # Process each tool call and ensure we have matching responses
+                                for tool_call in message.tool_calls:
+                                    tool_name = tool_call.function.name
+                                    tool_args = json.loads(tool_call.function.arguments)
                                     
-                                    # Add the tool response to conversation
-                                    assistant_message = f"I called {tool_name} and got the following result:\n{json.dumps(tool_response['result'], indent=2)}"
-                                    st.session_state.messages.append({"role": "assistant", "content": assistant_message})
+                                    # Extract server name and original tool name
+                                    server_name = None
+                                    original_tool_name = tool_name
+                                    
+                                    # Find which server this tool belongs to by checking the tool name prefix
+                                    for orig_server_name in st.session_state.mcp_clients.keys():
+                                        sanitized_name = orig_server_name.replace(" ", "_").replace("-", "_")
+                                        if tool_name.startswith(f"{sanitized_name}_"):
+                                            server_name = orig_server_name
+                                            original_tool_name = tool_name[len(f"{sanitized_name}_"):]
+                                            break
+                                    
+                                    # Fallback if no server found
+                                    if not server_name and st.session_state.mcp_clients:
+                                        server_name = list(st.session_state.mcp_clients.keys())[0]
+                                        original_tool_name = tool_name
+                                    elif not server_name:
+                                        # No MCP servers available at all
+                                        st.error(f"❌ Tool '{tool_name}' requires MCP server but none are connected")
+                                        tool_response = {"error": "No MCP servers connected"}
+                                        continue
+                                
+                                    st.write(f"🔧 Calling tool: {original_tool_name} on {server_name}")
+                                    st.write(f"Arguments: {tool_args}")
+                                    
+                                    # Call the MCP tool on the appropriate server
+                                    if server_name in st.session_state.mcp_clients:
+                                        st.write("📡 Sending request to MCP server...")
+                                        tool_response = st.session_state.mcp_clients[server_name].call_tool(original_tool_name, tool_args)
+                                        st.write("✅ Got response from MCP server")
+                                    else:
+                                        tool_response = {"error": f"Server {server_name} not connected"}
+                                
+                                # Process MCP tool response properly
+                                if tool_response and "result" in tool_response:
+                                    result = tool_response["result"]
+                                    
+                                    # Handle MCP result format: {"content": [{"type": "text", "text": "..."}], "isError": false}
+                                    if isinstance(result, dict) and "content" in result:
+                                        content_items = result.get("content", [])
+                                        if content_items and len(content_items) > 0:
+                                            # Extract the actual text content
+                                            text_content = content_items[0].get("text", "")
+                                            try:
+                                                # Try to parse the text as JSON for better formatting
+                                                parsed_content = json.loads(text_content)
+                                                content = json.dumps(parsed_content, indent=2)
+                                            except json.JSONDecodeError:
+                                                # If not JSON, use as-is
+                                                content = text_content
+                                        else:
+                                            content = json.dumps(result, indent=2)
+                                    else:
+                                        # Fallback to original result
+                                        content = json.dumps(result, indent=2)
+                                    
+                                    st.write("✅ Got results from tool")
                                 else:
-                                    st.error(f"Error calling tool: {tool_response}")
+                                    # Handle error case
+                                    error_msg = tool_response.get("error", "Unknown error") if tool_response else "No response"
+                                    content = json.dumps({"error": error_msg}, indent=2)
+                                    st.error(f"Error calling tool: {error_msg}")
+                                
+                                # Add tool result to messages for LLM to format
+                                tool_result_message = {
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": content
+                                }
+                                
+                                st.write("🔄 Processing results...")
+                                st.session_state.messages.append(tool_result_message)
+                            
+                                # Show raw results as JSON - simple and fast
+                                st.write("**Results:**")
+                                for msg in st.session_state.messages[-len(message.tool_calls):]:
+                                    if msg.get("role") == "tool":
+                                        st.json(msg["content"])
+                                
+                                # Add a simple summary to conversation
+                                summary = f"Tool execution completed. Results displayed above."
+                                st.session_state.messages.append({"role": "assistant", "content": summary})
+                                
                         else:
                             # Regular response without tool calls
                             content = message.content
@@ -477,14 +733,13 @@ def main():
                     st.error(f"Error: {e}")
     
     # Cleanup button
-    if st.session_state.mcp_connected:
-        if st.button("Disconnect MCP Server"):
-            if st.session_state.mcp_client:
-                st.session_state.mcp_client.close()
-                st.session_state.mcp_client = None
-                st.session_state.mcp_connected = False
-                st.success("Disconnected from MCP server")
-                st.rerun()
+    if st.session_state.mcp_clients:
+        if st.button("Disconnect All MCP Servers"):
+            for client in st.session_state.mcp_clients.values():
+                client.close()
+            st.session_state.mcp_clients = {}
+            st.success("Disconnected from all MCP servers")
+            st.rerun()
 
 if __name__ == "__main__":
     main()
