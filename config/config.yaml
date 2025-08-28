@@ -1,0 +1,70 @@
+# Azure OpenAI Configuration
+##azure_openai:
+##endpoint: "https://aoai-poc-steve.openai.azure.com/"
+##api_key: "4b9ddbd2052a473ebac7d72cd4836888"
+##api_version: "2025-01-01-preview"
+##deployment_name: "gpt-4o-steve"
+
+azure_openai:
+  endpoint: "https://steve-mesdmwx4-swedencentral.openai.azure.com"
+  api_key: "7iIQAPsZohVLlYDLin9DUalBN1lchAThApsXuw4F9ksHYBzRvAocJQQJ99BHACfhMk5XJ3w3AAAAACOG4Qmr"
+  api_version: "2025-04-01-preview"
+  deployment_name: "gpt-5"
+
+# SQL Server Configuration
+sql_server:
+  server: "localhost"
+  database: "Test_Steve"
+  driver: "ODBC Driver 17 for SQL Server"
+  use_windows_auth: false # Uses SQL Server login
+  username: "steve_test" # The SQL user you created
+  password: "SteveTest!23" # The password you set
+  encrypt: "no"
+  trust_server_certificate: "yes"
+
+# Databricks Configuration
+databricks:
+  server_hostname: "dbc-877a27e7-77f1.cloud.databricks.com"
+  http_path: "/sql/1.0/warehouses/d8d77f34c4cd52cc"
+  access_token: "dapi7100f810053a294b0234708740d0a92c"
+  catalog: "steve_databricks"
+  schema: "data_migration"
+
+# Azure DevOps Configuration
+azure_devops:
+  organization: "SteveZhu0309" # Your Azure DevOps organization name
+
+# Web Search Configuration
+web_search:
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+  timeout: 10
+  max_results: 10
+
+# Snowflake Configuration
+snowflake:
+  # Required: Snowflake account identifier
+  account: "MZLGTMY-ZL90213"
+  
+  # Required: Snowflake username
+  user: "stevezhu"
+  
+  # Authentication Method: Username/Password
+  password: "TjU9818@8384858"
+  
+  # Optional: Default connection settings
+  database: "steve_mcp"
+  schema: "data_migration"
+  warehouse: "compute_wh"
+  role: "accountadmin"
+  
+  # Connection Settings
+  timeout: 120
+  max_retries: 3
+  retry_delay: 5
+  pool_size: 5
+  pool_timeout: 30
+
+# MCP Server Configuration
+mcp_server:
+  host: "localhost"
+  port: 8000
