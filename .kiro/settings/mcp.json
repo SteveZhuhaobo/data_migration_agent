@@ -8,7 +8,7 @@
         "SteveZhu0309"
       ],
       "env": {
-        "AZURE_DEVOPS_PAT": "${AZURE_DEVOPS_PAT}",
+        "AZURE_DEVOPS_PAT": "BplWDEBbFJGXLaeZX4FBUgHQJlvEmYlFToIgMVZ4I12ohYMxWc3hJQQJ99BHACAAAAAQRgKKAAASAZDO1LiU",
         "AZURE_DEVOPS_ORG_URL": "https://dev.azure.com/SteveZhu0309"
       },
       "disabled": false,

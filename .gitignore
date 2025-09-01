@@ -1,2 +1,3 @@
  .venv/
+ .kiro/
  config/config.yaml
