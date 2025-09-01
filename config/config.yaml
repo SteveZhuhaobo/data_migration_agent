@@ -6,10 +6,10 @@
 ##deployment_name: "gpt-4o-steve"
 
 azure_openai:
-  endpoint: "https://your-azure-openai-endpoint.openai.azure.com"
-  api_key: "your-azure-openai-api-key"
+  endpoint: "https://steve-mesdmwx4-swedencentral.openai.azure.com"
+  api_key: "7iIQAPsZohVLlYDLin9DUalBN1lchAThApsXuw4F9ksHYBzRvAocJQQJ99BHACfhMk5XJ3w3AAAAACOG4Qmr"
   api_version: "2025-04-01-preview"
-  deployment_name: "your-deployment-name"
+  deployment_name: "gpt-5"
 
 # SQL Server Configuration
 sql_server:
@@ -17,22 +17,22 @@ sql_server:
   database: "Test_Steve"
   driver: "ODBC Driver 17 for SQL Server"
   use_windows_auth: false # Uses SQL Server login
-  username: "your-sql-username" # The SQL user you created
-  password: "your-sql-password" # The password you set
+  username: "steve_test" # The SQL user you created
+  password: "SteveTest!23" # The password you set
   encrypt: "no"
   trust_server_certificate: "yes"
 
 # Databricks Configuration
 databricks:
-  server_hostname: "your-workspace.cloud.databricks.com"
-  http_path: "/sql/1.0/warehouses/your-warehouse-id"
-  access_token: "your-databricks-access-token"
-  catalog: "your-catalog"
-  schema: "your-schema"
+  server_hostname: "dbc-877a27e7-77f1.cloud.databricks.com"
+  http_path: "/sql/1.0/warehouses/d8d77f34c4cd52cc"
+  access_token: "dapi7100f810053a294b0234708740d0a92c"
+  catalog: "steve_databricks"
+  schema: "data_migration"
 
 # Azure DevOps Configuration
 azure_devops:
-  organization: "your-azure-devops-org" # Your Azure DevOps organization name
+  organization: "SteveZhu0309" # Your Azure DevOps organization name
 
 # Web Search Configuration
 web_search:
@@ -43,17 +43,17 @@ web_search:
 # Snowflake Configuration
 snowflake:
   # Required: Snowflake account identifier
-  account: "your-snowflake-account"
+  account: "MZLGTMY-ZL90213"
 
   # Required: Snowflake username
-  user: "your-snowflake-username"
+  user: "stevezhu"
 
   # Authentication Method: Username/Password
-  password: "your-snowflake-password"
+  password: "TjU9818@8384858"
 
   # Optional: Default connection settings
-  database: "your-database"
-  schema: "your-schema"
+  database: "steve_mcp"
+  schema: "data_migration"
   warehouse: "compute_wh"
   role: "accountadmin"
 
