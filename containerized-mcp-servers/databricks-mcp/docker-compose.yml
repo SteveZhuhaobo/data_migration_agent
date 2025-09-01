@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  databricks-mcp:
+    build: .
+    image: databricks-mcp:latest
+    container_name: databricks-mcp-server
+    environment:
+      # Databricks connection settings
+      - DATABRICKS_SERVER_HOSTNAME=${DATABRICKS_SERVER_HOSTNAME}
+      - DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}
+      - DATABRICKS_ACCESS_TOKEN=${DATABRICKS_ACCESS_TOKEN}
+      - DATABRICKS_CATALOG=${DATABRICKS_CATALOG:-hive_metastore}
+      - DATABRICKS_SCHEMA=${DATABRICKS_SCHEMA:-default}
+      
+      # Python settings for better container behavior
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    
+    volumes:
+      # Mount config directory (optional, for file-based config)
+      - ./config:/app/config:ro
+      
+      # Mount logs directory (optional)
+      - ./logs:/app/logs
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import server; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Optional: Create a network for the MCP server
+networks:
+  default:
+    name: databricks-mcp-network

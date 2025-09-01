@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  sqlserver-mcp:
+    build: .
+    image: sqlserver-mcp:latest
+    container_name: sqlserver-mcp-server
+    environment:
+      # Required SQL Server connection settings
+      - SQLSERVER_SERVER=${SQLSERVER_SERVER}
+      - SQLSERVER_DATABASE=${SQLSERVER_DATABASE:-master}
+      
+      # Authentication settings
+      - SQLSERVER_USE_WINDOWS_AUTH=${SQLSERVER_USE_WINDOWS_AUTH:-false}
+      - SQLSERVER_USERNAME=${SQLSERVER_USERNAME:-}
+      - SQLSERVER_PASSWORD=${SQLSERVER_PASSWORD:-}
+      
+      # Connection security settings
+      - SQLSERVER_DRIVER=${SQLSERVER_DRIVER:-ODBC Driver 17 for SQL Server}
+      - SQLSERVER_ENCRYPT=${SQLSERVER_ENCRYPT:-yes}
+      - SQLSERVER_TRUST_CERTIFICATE=${SQLSERVER_TRUST_CERTIFICATE:-yes}
+    
+    # Mount volumes for configuration (optional)
+    volumes:
+      - ./config:/app/config:ro
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import server; print('OK')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Optional: Network configuration
+networks:
+  default:
+    name: mcp-network
+    driver: bridge

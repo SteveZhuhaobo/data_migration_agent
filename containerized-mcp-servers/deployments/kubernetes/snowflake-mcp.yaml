@@ -1,0 +1,199 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: snowflake-mcp-secret
+  namespace: default
+type: Opaque
+stringData:
+  password: "your-snowflake-password"
+  private-key: |
+    -----BEGIN PRIVATE KEY-----
+    your-private-key-content-here
+    -----END PRIVATE KEY-----
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: snowflake-mcp-config
+  namespace: default
+data:
+  config.yaml: |
+    snowflake:
+      account: "your-account"
+      user: "your-username"
+      database: "your-database"
+      schema: "your-schema"
+      warehouse: "your-warehouse"
+      role: "your-role"
+      timeout: 120
+      max_retries: 3
+      retry_delay: 5
+      pool_size: 5
+      pool_timeout: 30
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snowflake-mcp
+  namespace: default
+  labels:
+    app: snowflake-mcp
+    version: v1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snowflake-mcp
+  template:
+    metadata:
+      labels:
+        app: snowflake-mcp
+        version: v1.0.0
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: snowflake-mcp
+        image: ghcr.io/your-org/snowflake-mcp:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: health
+        env:
+        - name: SNOWFLAKE_ACCOUNT
+          valueFrom:
+            configMapKeyRef:
+              name: snowflake-mcp-config
+              key: account
+        - name: SNOWFLAKE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: snowflake-mcp-config
+              key: user
+        - name: SNOWFLAKE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: snowflake-mcp-secret
+              key: password
+        - name: SNOWFLAKE_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: snowflake-mcp-config
+              key: database
+        - name: SNOWFLAKE_SCHEMA
+          valueFrom:
+            configMapKeyRef:
+              name: snowflake-mcp-config
+              key: schema
+        - name: SNOWFLAKE_WAREHOUSE
+          valueFrom:
+            configMapKeyRef:
+              name: snowflake-mcp-config
+              key: warehouse
+        - name: SNOWFLAKE_ROLE
+          valueFrom:
+            configMapKeyRef:
+              name: snowflake-mcp-config
+              key: role
+              optional: true
+        - name: SNOWFLAKE_PRIVATE_KEY_PATH
+          value: "/etc/snowflake/private-key"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: private-key
+          mountPath: /etc/snowflake
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import health_check; health_check.check_health()"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import health_check; health_check.check_ready()"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: snowflake-mcp-config
+      - name: private-key
+        secret:
+          secretName: snowflake-mcp-secret
+          items:
+          - key: private-key
+            path: private-key
+            mode: 0600
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: snowflake-mcp-service
+  namespace: default
+  labels:
+    app: snowflake-mcp
+spec:
+  selector:
+    app: snowflake-mcp
+  ports:
+  - name: health
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: snowflake-mcp-netpol
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: snowflake-mcp
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: mcp-client
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS for Snowflake
+    - protocol: TCP
+      port: 53   # DNS
+    - protocol: UDP
+      port: 53   # DNS

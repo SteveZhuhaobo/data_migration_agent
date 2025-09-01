@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  snowflake-mcp-test:
+    build: .
+    environment:
+      # Test environment variables - these are mock values for testing
+      - SNOWFLAKE_ACCOUNT=test_account
+      - SNOWFLAKE_USER=test_user
+      - SNOWFLAKE_PASSWORD=test_password
+      - SNOWFLAKE_DATABASE=test_db
+      - SNOWFLAKE_SCHEMA=test_schema
+      - SNOWFLAKE_WAREHOUSE=test_warehouse
+      - SNOWFLAKE_ROLE=test_role
+      - SNOWFLAKE_TIMEOUT=60
+      - SNOWFLAKE_MAX_RETRIES=2
+      - SNOWFLAKE_RETRY_DELAY=3
+    volumes:
+      - ./test_results:/app/test_results
+    command: >
+      sh -c "
+        echo 'Running unit tests...' &&
+        python -m pytest test_server.py -v --tb=short --junit-xml=test_results/unit_tests.xml &&
+        echo 'Unit tests completed.' &&
+        echo 'Running integration tests...' &&
+        python -m pytest test_integration.py -v --tb=short --junit-xml=test_results/integration_tests.xml &&
+        echo 'All tests completed.'
+      "
+    networks:
+      - test-network
+
+  # Mock Snowflake service for isolated testing (optional)
+  mock-snowflake:
+    image: alpine:latest
+    command: >
+      sh -c "
+        echo 'Mock Snowflake service running for isolated tests' &&
+        sleep 300
+      "
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  test_results:

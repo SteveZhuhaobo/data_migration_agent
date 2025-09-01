@@ -1,0 +1,41 @@
+# Databricks MCP Server Configuration Template
+# This file shows the expected configuration structure
+# Environment variables take precedence over values in this file
+
+databricks:
+  # Databricks workspace hostname (without https://)
+  # Environment variable: DATABRICKS_SERVER_HOSTNAME
+  server_hostname: "${DATABRICKS_SERVER_HOSTNAME}"
+  
+  # SQL warehouse HTTP path (e.g., /sql/1.0/warehouses/abc123def456)
+  # Environment variable: DATABRICKS_HTTP_PATH
+  http_path: "${DATABRICKS_HTTP_PATH}"
+  
+  # Personal access token for authentication
+  # Environment variable: DATABRICKS_ACCESS_TOKEN
+  access_token: "${DATABRICKS_ACCESS_TOKEN}"
+  
+  # Default catalog to use (optional, defaults to 'hive_metastore')
+  # Environment variable: DATABRICKS_CATALOG
+  catalog: "${DATABRICKS_CATALOG:-hive_metastore}"
+  
+  # Default schema to use (optional, defaults to 'default')
+  # Environment variable: DATABRICKS_SCHEMA
+  schema: "${DATABRICKS_SCHEMA:-default}"
+
+# Connection settings
+connection:
+  # Connection timeout in seconds (default: 120)
+  timeout: 120
+  
+  # Maximum number of retries for failed connections (default: 3)
+  max_retries: 3
+  
+  # Delay between retries in seconds (default: 5)
+  retry_delay: 5
+  
+  # Connection pool size (default: 5)
+  pool_size: 5
+  
+  # Pool timeout in seconds (default: 30)
+  pool_timeout: 30

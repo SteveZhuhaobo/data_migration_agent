@@ -1,0 +1,87 @@
+{
+  "family": "snowflake-mcp",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "snowflake-mcp",
+      "image": "ghcr.io/your-org/snowflake-mcp:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SNOWFLAKE_ACCOUNT",
+          "value": "your-account"
+        },
+        {
+          "name": "SNOWFLAKE_USER",
+          "value": "your-username"
+        },
+        {
+          "name": "SNOWFLAKE_DATABASE",
+          "value": "your-database"
+        },
+        {
+          "name": "SNOWFLAKE_SCHEMA",
+          "value": "your-schema"
+        },
+        {
+          "name": "SNOWFLAKE_WAREHOUSE",
+          "value": "your-warehouse"
+        },
+        {
+          "name": "SNOWFLAKE_ROLE",
+          "value": "your-role"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "SNOWFLAKE_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:snowflake-password-SUFFIX"
+        },
+        {
+          "name": "SNOWFLAKE_PRIVATE_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:snowflake-private-key-SUFFIX"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/snowflake-mcp",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python -c 'import health_check; health_check.check_health()' || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "stopTimeout": 30
+    }
+  ],
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Service",
+      "value": "snowflake-mcp"
+    }
+  ]
+}

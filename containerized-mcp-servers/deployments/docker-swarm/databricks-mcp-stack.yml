@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  databricks-mcp:
+    image: ghcr.io/your-org/databricks-mcp:latest
+    environment:
+      - DATABRICKS_SERVER_HOSTNAME=your-workspace.databricks.com
+      - DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/your-warehouse-id
+      - DATABRICKS_CATALOG=your-catalog
+      - DATABRICKS_SCHEMA=your-schema
+    secrets:
+      - databricks_access_token
+    configs:
+      - source: databricks_config
+        target: /app/config/config.yaml
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.3
+      rollback_config:
+        parallelism: 1
+        delay: 0s
+        failure_action: pause
+        monitor: 60s
+        max_failure_ratio: 0.3
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.id
+    healthcheck:
+      test: ["CMD", "python", "-c", "import health_check; health_check.check_health()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mcp_network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  databricks_access_token:
+    external: true
+
+configs:
+  databricks_config:
+    external: true
+
+networks:
+  mcp_network:
+    driver: overlay
+    attachable: true

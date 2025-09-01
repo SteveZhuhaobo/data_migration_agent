@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sqlserver-mcp-secret
+  namespace: default
+type: Opaque
+stringData:
+  password: "your-sqlserver-password"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sqlserver-mcp-config
+  namespace: default
+data:
+  config.yaml: |
+    sqlserver:
+      server: "your-server.database.windows.net"
+      database: "your-database"
+      username: "your-username"
+      driver: "ODBC Driver 18 for SQL Server"
+      encrypt: "yes"
+      trust_certificate: "no"
+      timeout: 120
+      max_retries: 3
+      retry_delay: 5
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqlserver-mcp
+  namespace: default
+  labels:
+    app: sqlserver-mcp
+    version: v1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqlserver-mcp
+  template:
+    metadata:
+      labels:
+        app: sqlserver-mcp
+        version: v1.0.0
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: sqlserver-mcp
+        image: ghcr.io/your-org/sqlserver-mcp:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: health
+        env:
+        - name: SQLSERVER_SERVER
+          valueFrom:
+            configMapKeyRef:
+              name: sqlserver-mcp-config
+              key: server
+        - name: SQLSERVER_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: sqlserver-mcp-config
+              key: database
+        - name: SQLSERVER_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: sqlserver-mcp-config
+              key: username
+        - name: SQLSERVER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sqlserver-mcp-secret
+              key: password
+        - name: SQLSERVER_DRIVER
+          valueFrom:
+            configMapKeyRef:
+              name: sqlserver-mcp-config
+              key: driver
+        - name: SQLSERVER_ENCRYPT
+          valueFrom:
+            configMapKeyRef:
+              name: sqlserver-mcp-config
+              key: encrypt
+        - name: SQLSERVER_TRUST_CERTIFICATE
+          valueFrom:
+            configMapKeyRef:
+              name: sqlserver-mcp-config
+              key: trust_certificate
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import health_check; health_check.check_health()"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import health_check; health_check.check_ready()"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: config
+        configMap:
+          name: sqlserver-mcp-config
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlserver-mcp-service
+  namespace: default
+  labels:
+    app: sqlserver-mcp
+spec:
+  selector:
+    app: sqlserver-mcp
+  ports:
+  - name: health
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sqlserver-mcp-netpol
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: sqlserver-mcp
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: mcp-client
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 1433  # SQL Server default port
+    - protocol: TCP
+      port: 53    # DNS
+    - protocol: UDP
+      port: 53    # DNS

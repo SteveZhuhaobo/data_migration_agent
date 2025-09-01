@@ -1,0 +1,68 @@
+# Snowflake MCP Server Configuration Template
+# This file shows the expected configuration structure when using config files
+# For containerized deployment, use environment variables instead
+
+snowflake:
+  # Required: Snowflake account identifier
+  # Environment variable: SNOWFLAKE_ACCOUNT
+  account: "${SNOWFLAKE_ACCOUNT}"
+  
+  # Required: Snowflake username
+  # Environment variable: SNOWFLAKE_USER
+  user: "${SNOWFLAKE_USER}"
+  
+  # Authentication Method 1: Username/Password
+  # Environment variable: SNOWFLAKE_PASSWORD
+  password: "${SNOWFLAKE_PASSWORD}"
+  
+  # Authentication Method 2: Key Pair Authentication
+  # Environment variable: SNOWFLAKE_PRIVATE_KEY_PATH
+  # private_key_path: "${SNOWFLAKE_PRIVATE_KEY_PATH}"
+  # Environment variable: SNOWFLAKE_PRIVATE_KEY_PASSPHRASE (optional)
+  # private_key_passphrase: "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE}"
+  
+  # Optional: Default connection settings
+  # Environment variable: SNOWFLAKE_DATABASE
+  database: "${SNOWFLAKE_DATABASE:-}"
+  # Environment variable: SNOWFLAKE_SCHEMA
+  schema: "${SNOWFLAKE_SCHEMA:-PUBLIC}"
+  # Environment variable: SNOWFLAKE_WAREHOUSE
+  warehouse: "${SNOWFLAKE_WAREHOUSE:-}"
+  # Environment variable: SNOWFLAKE_ROLE
+  role: "${SNOWFLAKE_ROLE:-}"
+  
+  # Connection Settings
+  # Environment variable: SNOWFLAKE_TIMEOUT
+  timeout: ${SNOWFLAKE_TIMEOUT:-120}
+  # Environment variable: SNOWFLAKE_MAX_RETRIES
+  max_retries: ${SNOWFLAKE_MAX_RETRIES:-3}
+  # Environment variable: SNOWFLAKE_RETRY_DELAY
+  retry_delay: ${SNOWFLAKE_RETRY_DELAY:-5}
+  
+  # Connection Pool Settings
+  # Environment variable: SNOWFLAKE_POOL_SIZE
+  pool_size: ${SNOWFLAKE_POOL_SIZE:-5}
+  # Environment variable: SNOWFLAKE_POOL_TIMEOUT
+  pool_timeout: ${SNOWFLAKE_POOL_TIMEOUT:-30}
+
+# Example configurations for different authentication methods:
+
+# Username/Password Authentication:
+# SNOWFLAKE_ACCOUNT=mycompany.us-east-1.snowflakecomputing.com
+# SNOWFLAKE_USER=john_doe
+# SNOWFLAKE_PASSWORD=your_password
+# SNOWFLAKE_DATABASE=ANALYTICS_DB
+# SNOWFLAKE_SCHEMA=PUBLIC
+# SNOWFLAKE_WAREHOUSE=COMPUTE_WH
+# SNOWFLAKE_ROLE=ANALYST_ROLE
+
+# Key Pair Authentication:
+# SNOWFLAKE_ACCOUNT=mycompany.us-east-1.snowflakecomputing.com
+# SNOWFLAKE_USER=service_account
+# SNOWFLAKE_PRIVATE_KEY_PATH=/secure/keys/snowflake_private_key.p8
+# SNOWFLAKE_PRIVATE_KEY_PASSPHRASE=your_key_passphrase
+# SNOWFLAKE_DATABASE=PROD_DB
+# SNOWFLAKE_SCHEMA=ANALYTICS
+# SNOWFLAKE_WAREHOUSE=ETL_WH
+# SNOWFLAKE_TIMEOUT=300
+# SNOWFLAKE_MAX_RETRIES=5

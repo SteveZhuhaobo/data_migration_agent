@@ -1,0 +1,75 @@
+{
+  "family": "databricks-mcp",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "databricks-mcp",
+      "image": "ghcr.io/your-org/databricks-mcp:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "DATABRICKS_SERVER_HOSTNAME",
+          "value": "your-workspace.databricks.com"
+        },
+        {
+          "name": "DATABRICKS_HTTP_PATH",
+          "value": "/sql/1.0/warehouses/your-warehouse-id"
+        },
+        {
+          "name": "DATABRICKS_CATALOG",
+          "value": "your-catalog"
+        },
+        {
+          "name": "DATABRICKS_SCHEMA",
+          "value": "your-schema"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABRICKS_ACCESS_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:databricks-access-token-SUFFIX"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/databricks-mcp",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python -c 'import health_check; health_check.check_health()' || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "stopTimeout": 30
+    }
+  ],
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Service",
+      "value": "databricks-mcp"
+    }
+  ]
+}

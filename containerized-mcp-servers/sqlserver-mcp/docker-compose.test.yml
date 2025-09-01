@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  sqlserver-mcp-test:
+    build: .
+    environment:
+      # Test environment variables - these are mock values for testing
+      - SQLSERVER_SERVER=mock-sqlserver
+      - SQLSERVER_DATABASE=test_db
+      - SQLSERVER_USERNAME=test_user
+      - SQLSERVER_PASSWORD=test_password
+      - SQLSERVER_DRIVER=ODBC Driver 17 for SQL Server
+      - SQLSERVER_ENCRYPT=yes
+      - SQLSERVER_TRUST_CERTIFICATE=yes
+      - SQLSERVER_USE_WINDOWS_AUTH=false
+    volumes:
+      - ./test_results:/app/test_results
+    command: >
+      sh -c "
+        echo 'Running unit tests...' &&
+        python -m pytest test_server.py -v --tb=short --junit-xml=test_results/unit_tests.xml &&
+        echo 'Unit tests completed.' &&
+        echo 'Running integration tests...' &&
+        python -m pytest test_integration.py -v --tb=short --junit-xml=test_results/integration_tests.xml &&
+        echo 'All tests completed.'
+      "
+    depends_on:
+      - mock-sqlserver
+    networks:
+      - test-network
+
+  # Mock SQL Server service for isolated testing
+  mock-sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=MockPassword123!
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P MockPassword123! -Q 'SELECT 1'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  test_results:

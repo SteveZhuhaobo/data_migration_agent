@@ -72,15 +72,9 @@
         "list_databases",
         "list_schemas",
         "list_tables",
-        "list_warehouses",
         "get_table_schema",
-        "describe_table",
         "execute_query",
-        "get_warehouse_status",
-        "start_warehouse",
-        "stop_warehouse",
-        "ping",
-        "test_connection"
+        "describe_table"
       ]
     }
   }

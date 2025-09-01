@@ -1,0 +1,83 @@
+{
+  "family": "sqlserver-mcp",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "sqlserver-mcp",
+      "image": "ghcr.io/your-org/sqlserver-mcp:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "SQLSERVER_SERVER",
+          "value": "your-server.database.windows.net"
+        },
+        {
+          "name": "SQLSERVER_DATABASE",
+          "value": "your-database"
+        },
+        {
+          "name": "SQLSERVER_USERNAME",
+          "value": "your-username"
+        },
+        {
+          "name": "SQLSERVER_DRIVER",
+          "value": "ODBC Driver 18 for SQL Server"
+        },
+        {
+          "name": "SQLSERVER_ENCRYPT",
+          "value": "yes"
+        },
+        {
+          "name": "SQLSERVER_TRUST_CERTIFICATE",
+          "value": "no"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "SQLSERVER_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:sqlserver-password-SUFFIX"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/sqlserver-mcp",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python -c 'import health_check; health_check.check_health()' || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "stopTimeout": 30
+    }
+  ],
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Service",
+      "value": "sqlserver-mcp"
+    }
+  ]
+}

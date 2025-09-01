@@ -1,0 +1,34 @@
+# SQL Server MCP Configuration Template
+# This file shows the expected configuration structure
+# In containerized deployment, these values are provided via environment variables
+
+sql_server:
+  # SQL Server connection settings
+  driver: "${SQLSERVER_DRIVER:-ODBC Driver 17 for SQL Server}"
+  server: "${SQLSERVER_SERVER}"  # Required: SQL Server hostname/IP
+  database: "${SQLSERVER_DATABASE:-master}"  # Database name
+  
+  # Authentication settings
+  use_windows_auth: ${SQLSERVER_USE_WINDOWS_AUTH:-false}  # Use Windows Authentication
+  username: "${SQLSERVER_USERNAME}"  # Required if not using Windows auth
+  password: "${SQLSERVER_PASSWORD}"  # Required if not using Windows auth
+  
+  # Connection security settings
+  encrypt: "${SQLSERVER_ENCRYPT:-yes}"  # Encrypt connection
+  trust_server_certificate: "${SQLSERVER_TRUST_CERTIFICATE:-yes}"  # Trust server certificate
+  
+  # Connection timeout and retry settings
+  connection_timeout: 30
+  command_timeout: 30
+  max_retries: 3
+  retry_delay: 5
+
+# Environment Variables Reference:
+# SQLSERVER_DRIVER - ODBC driver name (default: "ODBC Driver 17 for SQL Server")
+# SQLSERVER_SERVER - SQL Server hostname/IP (required)
+# SQLSERVER_DATABASE - Database name (default: "master")
+# SQLSERVER_USERNAME - Username for SQL Server authentication
+# SQLSERVER_PASSWORD - Password for SQL Server authentication
+# SQLSERVER_USE_WINDOWS_AUTH - Use Windows authentication (true/false, default: false)
+# SQLSERVER_ENCRYPT - Encrypt connection (yes/no, default: yes)
+# SQLSERVER_TRUST_CERTIFICATE - Trust server certificate (yes/no, default: yes)

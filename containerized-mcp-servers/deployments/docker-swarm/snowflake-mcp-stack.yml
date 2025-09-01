@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  snowflake-mcp:
+    image: ghcr.io/your-org/snowflake-mcp:latest
+    environment:
+      - SNOWFLAKE_ACCOUNT=your-account
+      - SNOWFLAKE_USER=your-username
+      - SNOWFLAKE_DATABASE=your-database
+      - SNOWFLAKE_SCHEMA=your-schema
+      - SNOWFLAKE_WAREHOUSE=your-warehouse
+      - SNOWFLAKE_ROLE=your-role
+    secrets:
+      - snowflake_password
+      - snowflake_private_key
+    configs:
+      - source: snowflake_config
+        target: /app/config/config.yaml
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.3
+      rollback_config:
+        parallelism: 1
+        delay: 0s
+        failure_action: pause
+        monitor: 60s
+        max_failure_ratio: 0.3
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+      placement:
+        constraints:
+          - node.role == worker
+        preferences:
+          - spread: node.id
+    healthcheck:
+      test: ["CMD", "python", "-c", "import health_check; health_check.check_health()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mcp_network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  snowflake_password:
+    external: true
+  snowflake_private_key:
+    external: true
+
+configs:
+  snowflake_config:
+    external: true
+
+networks:
+  mcp_network:
+    driver: overlay
+    attachable: true

@@ -44,19 +44,19 @@ web_search:
 snowflake:
   # Required: Snowflake account identifier
   account: "MZLGTMY-ZL90213"
-  
+
   # Required: Snowflake username
   user: "stevezhu"
-  
+
   # Authentication Method: Username/Password
   password: "TjU9818@8384858"
-  
+
   # Optional: Default connection settings
   database: "steve_mcp"
   schema: "data_migration"
   warehouse: "compute_wh"
   role: "accountadmin"
-  
+
   # Connection Settings
   timeout: 120
   max_retries: 3

@@ -1,0 +1,353 @@
+name: Build and Publish MCP Servers
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+    paths:
+      - 'containerized-mcp-servers/**'
+      - '.github/workflows/build-and-publish.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'containerized-mcp-servers/**'
+      - '.github/workflows/build-and-publish.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build and publish'
+        required: false
+        default: 'latest'
+      publish:
+        description: 'Publish to registries'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+env:
+  REGISTRY_GHCR: ghcr.io
+  REGISTRY_DOCKER: docker.io
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      snowflake: ${{ steps.changes.outputs.snowflake }}
+      databricks: ${{ steps.changes.outputs.databricks }}
+      sqlserver: ${{ steps.changes.outputs.sqlserver }}
+      scripts: ${{ steps.changes.outputs.scripts }}
+      any-server: ${{ steps.changes.outputs.snowflake == 'true' || steps.changes.outputs.databricks == 'true' || steps.changes.outputs.sqlserver == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            snowflake:
+              - 'containerized-mcp-servers/snowflake-mcp/**'
+              - 'Snowflake_MCP.py'
+            databricks:
+              - 'containerized-mcp-servers/databricks-mcp/**'
+              - 'Databricks_MCP.py'
+            sqlserver:
+              - 'containerized-mcp-servers/sqlserver-mcp/**'
+              - 'SQL_MCP.py'
+            scripts:
+              - 'containerized-mcp-servers/scripts/**'
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.any-server == 'true' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'containerized-mcp-servers'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, security-scan]
+    if: needs.detect-changes.outputs.any-server == 'true' || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        server: [snowflake-mcp, databricks-mcp, sqlserver-mcp]
+      fail-fast: false
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ matrix.server }}
+            ${{ env.REGISTRY_DOCKER }}/${{ github.repository_owner }}/${{ matrix.server }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.event.inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./containerized-mcp-servers/${{ matrix.server }}
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/${{ matrix.server }}.tar
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.server }}-image
+          path: /tmp/${{ matrix.server }}.tar
+          retention-days: 1
+
+  test-containers:
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    strategy:
+      matrix:
+        server: [snowflake-mcp, databricks-mcp, sqlserver-mcp]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.server }}-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/${{ matrix.server }}.tar
+
+      - name: Test container startup
+        run: |
+          # Get the image name from the loaded image
+          IMAGE_NAME=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep ${{ matrix.server }} | head -1)
+          echo "Testing image: $IMAGE_NAME"
+          
+          # Test container can start and stop
+          CONTAINER_ID=$(docker run -d $IMAGE_NAME)
+          sleep 10
+          
+          # Check if container is running
+          if docker ps | grep $CONTAINER_ID; then
+            echo "✅ Container started successfully"
+          else
+            echo "❌ Container failed to start"
+            docker logs $CONTAINER_ID
+            exit 1
+          fi
+          
+          # Clean up
+          docker stop $CONTAINER_ID
+          docker rm $CONTAINER_ID
+
+      - name: Test image security
+        run: |
+          IMAGE_NAME=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep ${{ matrix.server }} | head -1)
+          
+          # Check if running as non-root
+          USER_INFO=$(docker run --rm $IMAGE_NAME id 2>/dev/null || echo "uid=0")
+          if echo "$USER_INFO" | grep -q "uid=1000"; then
+            echo "✅ Container runs as non-root user"
+          else
+            echo "⚠️ Container may be running as root: $USER_INFO"
+          fi
+
+      - name: Run Trivy container scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.server }}:latest
+          format: 'table'
+          exit-code: '0'  # Don't fail on vulnerabilities, just report
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-test, test-containers]
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    strategy:
+      matrix:
+        server: [snowflake-mcp, databricks-mcp, sqlserver-mcp]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        if: secrets.DOCKERHUB_TOKEN != ''
+        with:
+          registry: ${{ env.REGISTRY_DOCKER }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ matrix.server }}
+            ${{ env.REGISTRY_DOCKER }}/${{ github.repository_owner }}/${{ matrix.server }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.event.inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./containerized-mcp-servers/${{ matrix.server }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY_GHCR }}/${{ github.repository_owner }}/${{ matrix.server }}:latest
+          format: spdx-json
+          output-file: ${{ matrix.server }}-sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.server }}-sbom
+          path: ${{ matrix.server }}-sbom.spdx.json
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [publish]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all SBOMs
+        uses: actions/download-artifact@v3
+        with:
+          path: ./sboms
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./sboms/**/*.spdx.json
+          body: |
+            ## MCP Servers Release ${{ github.ref_name }}
+            
+            This release includes containerized versions of:
+            - Snowflake MCP Server
+            - Databricks MCP Server  
+            - SQL Server MCP Server
+            
+            ### Container Images
+            
+            All images are available on:
+            - GitHub Container Registry: `ghcr.io/${{ github.repository_owner }}/[server-name]:${{ github.ref_name }}`
+            - Docker Hub: `docker.io/${{ github.repository_owner }}/[server-name]:${{ github.ref_name }}`
+            
+            ### Usage
+            
+            ```bash
+            # Pull and run Snowflake MCP Server
+            docker run -e SNOWFLAKE_ACCOUNT=your-account ghcr.io/${{ github.repository_owner }}/snowflake-mcp:${{ github.ref_name }}
+            
+            # Pull and run Databricks MCP Server  
+            docker run -e DATABRICKS_SERVER_HOSTNAME=your-host ghcr.io/${{ github.repository_owner }}/databricks-mcp:${{ github.ref_name }}
+            
+            # Pull and run SQL Server MCP Server
+            docker run -e SQLSERVER_SERVER=your-server ghcr.io/${{ github.repository_owner }}/sqlserver-mcp:${{ github.ref_name }}
+            ```
+            
+            ### Security
+            
+            - All containers run as non-root users
+            - Images are scanned for vulnerabilities
+            - SBOMs (Software Bill of Materials) are included with this release
+            
+            See the individual server README files for detailed configuration options.
+          draft: false
+          prerelease: false
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [publish]
+    if: always() && (needs.publish.result == 'success' || needs.publish.result == 'failure')
+    steps:
+      - name: Notify on success
+        if: needs.publish.result == 'success'
+        run: |
+          echo "✅ All MCP server containers built and published successfully!"
+          echo "Images are available at:"
+          echo "- ghcr.io/${{ github.repository_owner }}/snowflake-mcp"
+          echo "- ghcr.io/${{ github.repository_owner }}/databricks-mcp"  
+          echo "- ghcr.io/${{ github.repository_owner }}/sqlserver-mcp"
+
+      - name: Notify on failure
+        if: needs.publish.result == 'failure'
+        run: |
+          echo "❌ Build or publish failed. Check the workflow logs for details."
+          exit 1
