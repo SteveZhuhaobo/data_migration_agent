@@ -27,13 +27,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Prompt for required environment variables if not set
-if "%SNOWFLAKE_ACCOUNT%"=="" set /p SNOWFLAKE_ACCOUNT=Enter Snowflake Account: 
-if "%SNOWFLAKE_USER%"=="" set /p SNOWFLAKE_USER=Enter Snowflake User: 
-if "%SNOWFLAKE_PASSWORD%"=="" set /p SNOWFLAKE_PASSWORD=Enter Snowflake Password: 
-if "%SNOWFLAKE_DATABASE%"=="" set /p SNOWFLAKE_DATABASE=Enter Snowflake Database: 
-if "%SNOWFLAKE_WAREHOUSE%"=="" set /p SNOWFLAKE_WAREHOUSE=Enter Snowflake Warehouse: 
-if "%SNOWFLAKE_SCHEMA%"=="" set SNOWFLAKE_SCHEMA=public
+REM Set default values from your config or prompt if not set
+if "%SNOWFLAKE_ACCOUNT%"=="" set SNOWFLAKE_ACCOUNT=MZLGTMY-ZL90213
+if "%SNOWFLAKE_USER%"=="" set SNOWFLAKE_USER=stevezhu
+if "%SNOWFLAKE_PASSWORD%"=="" set SNOWFLAKE_PASSWORD=TjU9818@8384858
+if "%SNOWFLAKE_DATABASE%"=="" set SNOWFLAKE_DATABASE=steve_mcp
+if "%SNOWFLAKE_WAREHOUSE%"=="" set SNOWFLAKE_WAREHOUSE=compute_wh
+if "%SNOWFLAKE_SCHEMA%"=="" set SNOWFLAKE_SCHEMA=data_migration
+if "%SNOWFLAKE_ROLE%"=="" set SNOWFLAKE_ROLE=accountadmin
 
 echo Deploying Snowflake MCP Server to Azure Container Instances...
 

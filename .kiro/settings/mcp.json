@@ -18,16 +18,35 @@
         "mcp_azure_devops_wit_get_work_item"
       ]
     },
-    "sql-server": {
-      "command": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\dm_steve\\Scripts\\python.exe",
+    "sqlserver-mcp": {
+      "command": "docker",
       "args": [
-        "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\SQL_MCP.py"
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "SQLSERVER_SERVER=host.docker.internal",
+        "-e",
+        "SQLSERVER_DATABASE=mcp",
+        "-e",
+        "SQLSERVER_USERNAME=steve_test",
+        "-e",
+        "SQLSERVER_PASSWORD=SteveTest!23",
+        "-e",
+        "SQLSERVER_DRIVER=ODBC Driver 18 for SQL Server",
+        "-e",
+        "SQLSERVER_ENCRYPT=no",
+        "-e",
+        "SQLSERVER_TRUST_CERTIFICATE=yes",
+        "sqlserver-mcp:latest",
+        "python",
+        "server.py"
       ],
       "disabled": false,
       "autoApprove": [
+        "test_connection",
         "list_tables",
-        "get_table_schema",
-        "execute_query"
+        "get_table_schema"
       ]
     },
     "databricks": {
@@ -63,9 +82,38 @@
       ]
     },
     "snowflake": {
-      "command": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\dm_steve\\Scripts\\python.exe",
+      "command": "docker",
       "args": [
-        "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\Snowflake_MCP.py"
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "SNOWFLAKE_ACCOUNT=MZLGTMY-ZL90213",
+        "-e",
+        "SNOWFLAKE_USER=stevezhu",
+        "-e",
+        "SNOWFLAKE_PASSWORD=TjU9818@8384858",
+        "-e",
+        "SNOWFLAKE_DATABASE=steve_mcp",
+        "-e",
+        "SNOWFLAKE_SCHEMA=data_migration",
+        "-e",
+        "SNOWFLAKE_WAREHOUSE=compute_wh",
+        "-e",
+        "SNOWFLAKE_ROLE=accountadmin",
+        "-e",
+        "SNOWFLAKE_TIMEOUT=120",
+        "-e",
+        "SNOWFLAKE_MAX_RETRIES=3",
+        "-e",
+        "SNOWFLAKE_RETRY_DELAY=5",
+        "-e",
+        "SNOWFLAKE_POOL_SIZE=5",
+        "-e",
+        "SNOWFLAKE_POOL_TIMEOUT=30",
+        "snowflake-mcp:latest",
+        "python",
+        "server.py"
       ],
       "disabled": false,
       "autoApprove": [
@@ -74,7 +122,11 @@
         "list_tables",
         "get_table_schema",
         "execute_query",
-        "describe_table"
+        "describe_table",
+        "list_warehouses",
+        "get_warehouse_status",
+        "test_connection",
+        "ping"
       ]
     }
   }

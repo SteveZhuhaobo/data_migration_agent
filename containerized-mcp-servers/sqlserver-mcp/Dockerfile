@@ -1,36 +1,34 @@
 # Multi-stage build for SQL Server MCP Server
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     build-essential \
+    curl \
+    gnupg2 \
     unixodbc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create build directory
-WORKDIR /build
-
-# Copy requirements and install Python dependencies
+# Install Python dependencies
 COPY requirements.txt .
-COPY requirements-test.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
-RUN pip install --no-cache-dir --user -r requirements-test.txt
+RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Runtime stage
-FROM python:3.11-slim
+# Production stage
+FROM python:3.11-slim AS production
 
 # Install runtime dependencies including ODBC driver
 RUN apt-get update && apt-get install -y \
     curl \
-    gnupg \
+    gnupg2 \
     unixodbc \
-    unixodbc-dev \
-    && curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
-    && curl https://packages.microsoft.com/config/debian/11/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+    ca-certificates \
+    lsb-release \
+    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+    && echo "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/11/prod bullseye main" > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
-    && ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
+    && ACCEPT_EULA=Y apt-get install -y msodbcsql18 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
@@ -44,8 +42,11 @@ COPY --from=builder /root/.local /home/mcpuser/.local
 
 # Copy application code
 COPY server.py .
+COPY startup.py .
+COPY test_startup.py .
 COPY env_validator.py .
 COPY health_check.py .
+COPY test_connection.py .
 COPY config/ ./config/
 COPY test_server.py .
 COPY test_integration.py .
@@ -60,7 +61,7 @@ USER mcpuser
 ENV PATH=/home/mcpuser/.local/bin:$PATH
 
 # Environment variables for configuration
-ENV SQLSERVER_DRIVER="ODBC Driver 17 for SQL Server"
+ENV SQLSERVER_DRIVER="ODBC Driver 18 for SQL Server"
 ENV SQLSERVER_SERVER=""
 ENV SQLSERVER_DATABASE="master"
 ENV SQLSERVER_USERNAME=""
@@ -76,5 +77,5 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
 # Expose port (though MCP uses stdio, this is for potential future HTTP support)
 EXPOSE 8000
 
-# Run the server
-CMD ["python", "server.py"]
+# Run the server with startup wrapper
+CMD ["python", "startup.py"]

@@ -1,5 +1,5 @@
 # Multi-stage build for Snowflake MCP Server
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -35,6 +35,7 @@ COPY --from=builder /root/.local /home/mcpuser/.local
 
 # Copy application code
 COPY server.py .
+COPY startup.py .
 COPY env_validator.py .
 COPY health_check.py .
 COPY config/ ./config/
@@ -51,9 +52,9 @@ USER mcpuser
 ENV PATH=/home/mcpuser/.local/bin:$PATH
 
 # Environment variables for configuration
+# Note: Sensitive values like SNOWFLAKE_PASSWORD should be set at runtime, not in the image
 ENV SNOWFLAKE_ACCOUNT=""
 ENV SNOWFLAKE_USER=""
-ENV SNOWFLAKE_PASSWORD=""
 ENV SNOWFLAKE_DATABASE=""
 ENV SNOWFLAKE_SCHEMA="PUBLIC"
 ENV SNOWFLAKE_WAREHOUSE=""
@@ -71,5 +72,5 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
 # Expose port (though MCP uses stdio, this is for potential future HTTP support)
 EXPOSE 8000
 
-# Run the server
+# Run the server directly
 CMD ["python", "server.py"]

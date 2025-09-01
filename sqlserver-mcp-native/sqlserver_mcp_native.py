@@ -1,59 +1,39 @@
 #!/usr/bin/env python3
 """
-SQL Server MCP Server - A Model Context Protocol server for SQL Server operations
-Containerized version with environment variable support
+Native SQL Server MCP Server (No Docker Required)
+A Model Context Protocol server for SQL Server operations
 """
 
 import asyncio
 import json
-import yaml
 import pyodbc
 import os
+import sys
 from typing import Dict, Any, List, Optional
 from mcp.server import Server
 from mcp.types import Resource, Tool, TextContent
 import mcp.server.stdio
 
-# Import environment validator
-from env_validator import validate_environment
-
 # Create the server instance
-server = Server("sqlserver-mcp-server")
+server = Server("sqlserver-mcp-native")
 
-# Global config (loaded on startup)
-config = None
-
-def load_config():
-    """Load configuration from environment variables or config file"""
-    global config
-    
-    # Try to load from environment variables first
-    config = {
-        'sql_server': {
-            'driver': os.getenv('SQLSERVER_DRIVER', 'ODBC Driver 17 for SQL Server'),
-            'server': os.getenv('SQLSERVER_SERVER', 'localhost'),
-            'database': os.getenv('SQLSERVER_DATABASE', 'master'),
-            'username': os.getenv('SQLSERVER_USERNAME', ''),
-            'password': os.getenv('SQLSERVER_PASSWORD', ''),
-            'encrypt': os.getenv('SQLSERVER_ENCRYPT', 'yes'),
-            'trust_server_certificate': os.getenv('SQLSERVER_TRUST_CERTIFICATE', 'yes'),
-            'use_windows_auth': os.getenv('SQLSERVER_USE_WINDOWS_AUTH', 'false').lower() == 'true'
-        }
+# Configuration
+CONFIG = {
+    'sql_server': {
+        'driver': 'ODBC Driver 18 for SQL Server',
+        'server': 'localhost',  # Change this to your SQL Server
+        'database': 'Test_Steve',  # Change this to your database
+        'username': 'steve_test',  # Change this to your username
+        'password': 'SteveTest!23',  # Change this to your password
+        'encrypt': 'no',
+        'trust_server_certificate': 'yes',
+        'use_windows_auth': False
     }
-    
-    # Validate required configuration
-    if not config['sql_server']['server']:
-        raise ValueError("SQLSERVER_SERVER environment variable is required")
-    
-    if not config['sql_server']['use_windows_auth']:
-        if not config['sql_server']['username'] or not config['sql_server']['password']:
-            raise ValueError("SQLSERVER_USERNAME and SQLSERVER_PASSWORD are required when not using Windows authentication")
-    
-    print(f"SQL Server MCP Server configured for: {config['sql_server']['server']}/{config['sql_server']['database']}")
+}
 
 def get_connection():
     """Create SQL Server connection"""
-    sql_config = config['sql_server']
+    sql_config = CONFIG['sql_server']
     
     if sql_config.get('use_windows_auth', False):
         # Use Windows Authentication
@@ -116,47 +96,8 @@ async def list_tools() -> List[Tool]:
             }
         ),
         Tool(
-            name="create_table",
-            description="Create a new table in SQL Server",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "table_name": {"type": "string", "description": "Name of the table to create"},
-                    "columns": {"type": "array", "description": "Column definitions", "items": {"type": "string"}}
-                },
-                "required": ["table_name", "columns"]
-            }
-        ),
-        Tool(
-            name="insert_data",
-            description="Insert data into a SQL Server table",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "table_name": {"type": "string", "description": "Name of the table"},
-                    "data": {
-                        "type": "array", 
-                        "description": "Array of row objects to insert",
-                        "items": {
-                            "type": "object",
-                            "description": "Row data as key-value pairs"
-                        }
-                    }
-                },
-                "required": ["table_name", "data"]
-            }
-        ),
-        Tool(
             name="test_connection",
             description="Test the SQL Server connection and return basic info",
-            inputSchema={
-                "type": "object",
-                "properties": {}
-            }
-        ),
-        Tool(
-            name="health_check",
-            description="Comprehensive health check of the server and database connection",
             inputSchema={
                 "type": "object",
                 "properties": {}
@@ -177,14 +118,8 @@ async def call_tool(name: str, arguments: Optional[Dict[str, Any]] = None) -> Li
             result = await get_table_schema(arguments["table_name"])
         elif name == "list_tables":
             result = await list_tables()
-        elif name == "create_table":
-            result = await create_table(arguments["table_name"], arguments["columns"])
-        elif name == "insert_data":
-            result = await insert_data(arguments["table_name"], arguments["data"])
         elif name == "test_connection":
             result = await test_connection()
-        elif name == "health_check":
-            result = await health_check_tool()
         else:
             result = f"Unknown tool: {name}"
         
@@ -330,72 +265,6 @@ async def list_tables() -> str:
             "error": str(e)
         }, indent=2)
 
-async def create_table(table_name: str, columns: List[str]) -> str:
-    """Create a new table in SQL Server"""
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        columns_str = ", ".join(columns)
-        create_sql = f"CREATE TABLE {table_name} ({columns_str})"
-        
-        cursor.execute(create_sql)
-        conn.commit()
-        conn.close()
-        
-        return json.dumps({
-            "success": True,
-            "message": f"Table '{table_name}' created successfully",
-            "sql": create_sql
-        }, indent=2)
-        
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e)
-        }, indent=2)
-
-async def insert_data(table_name: str, data: List[Dict]) -> str:
-    """Insert data into a SQL Server table"""
-    try:
-        if not data:
-            return json.dumps({
-                "success": False,
-                "error": "No data provided"
-            }, indent=2)
-        
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        # Get column names from first row
-        columns = list(data[0].keys())
-        placeholders = ", ".join(["?" for _ in columns])
-        columns_str = ", ".join(columns)
-        
-        insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"
-        
-        # Insert all rows
-        rows_inserted = 0
-        for row in data:
-            values = [row.get(col) for col in columns]
-            cursor.execute(insert_sql, values)
-            rows_inserted += 1
-        
-        conn.commit()
-        conn.close()
-        
-        return json.dumps({
-            "success": True,
-            "message": f"Inserted {rows_inserted} rows into '{table_name}'",
-            "rows_inserted": rows_inserted
-        }, indent=2)
-        
-    except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e)
-        }, indent=2)
-
 async def test_connection() -> str:
     """Test SQL Server connection and return basic database info"""
     try:
@@ -426,52 +295,15 @@ async def test_connection() -> str:
             "error": str(e)
         }, indent=2)
 
-async def health_check_tool() -> str:
-    """Comprehensive health check"""
-    try:
-        from health_check import get_health_status
-        return await get_health_status()
-    except Exception as e:
-        return json.dumps({
-            "status": "unhealthy",
-            "error": f"Health check failed: {str(e)}",
-            "error_type": type(e).__name__
-        }, indent=2)
-
 async def main():
     """Main server entry point"""
     try:
-        # Validate environment variables first
-        print("🔍 Validating environment configuration...")
-        if not validate_environment():
-            print("❌ Environment validation failed. Server cannot start.")
-            return
-        
-        # Load configuration
-        print("📋 Loading configuration...")
-        load_config()
-        print("✅ Configuration loaded successfully")
-        
-        # Test database connection
-        print("🔌 Testing database connection...")
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT DB_NAME()")
-            db_name = cursor.fetchone()[0]
-            conn.close()
-            print(f"✅ Database connection successful: {db_name}")
-        except Exception as e:
-            print(f"❌ Database connection failed: {e}")
-            print("Server will continue but database operations will fail.")
-        
-        print("🚀 Starting SQL Server MCP Server...")
-        print("📡 Initializing MCP stdio server...")
+        print(f"🚀 Starting Native SQL Server MCP Server...")
+        print(f"📋 Server: {CONFIG['sql_server']['server']}")
+        print(f"📋 Database: {CONFIG['sql_server']['database']}")
         
         # Run the server
         async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-            print("✅ MCP stdio server initialized")
-            print("🎯 Starting server run loop...")
             await server.run(
                 read_stream,
                 write_stream,
@@ -479,8 +311,6 @@ async def main():
             )
     except Exception as e:
         print(f"❌ Failed to start SQL Server MCP Server: {e}")
-        import traceback
-        traceback.print_exc()
         raise
 
 if __name__ == "__main__":
