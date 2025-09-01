@@ -28,7 +28,7 @@ class TestDatabricksMCPServer(unittest.TestCase):
         self.env_vars = {
             'DATABRICKS_SERVER_HOSTNAME': 'test-workspace.cloud.databricks.com',
             'DATABRICKS_HTTP_PATH': '/sql/1.0/warehouses/test-warehouse-id',
-            'DATABRICKS_ACCESS_TOKEN': 'dapi1234567890abcdef',
+            'DATABRICKS_ACCESS_TOKEN': 'fake-test-token-not-real',
             'DATABRICKS_CATALOG': 'test_catalog',
             'DATABRICKS_SCHEMA': 'test_schema'
         }
@@ -57,7 +57,7 @@ class TestDatabricksMCPServer(unittest.TestCase):
         databricks_config = server.config['databricks']
         self.assertEqual(databricks_config['server_hostname'], 'test-workspace.cloud.databricks.com')
         self.assertEqual(databricks_config['http_path'], '/sql/1.0/warehouses/test-warehouse-id')
-        self.assertEqual(databricks_config['access_token'], 'dapi1234567890abcdef')
+        self.assertEqual(databricks_config['access_token'], 'fake-test-token-not-real')
         self.assertEqual(databricks_config['catalog'], 'test_catalog')
         self.assertEqual(databricks_config['schema'], 'test_schema')
     
@@ -268,7 +268,7 @@ class TestDatabricksTools(unittest.TestCase):
         os.environ.update({
             'DATABRICKS_SERVER_HOSTNAME': 'test-workspace.cloud.databricks.com',
             'DATABRICKS_HTTP_PATH': '/sql/1.0/warehouses/test-warehouse-id',
-            'DATABRICKS_ACCESS_TOKEN': 'dapi1234567890abcdef',
+            'DATABRICKS_ACCESS_TOKEN': 'fake-test-token-not-real',
             'DATABRICKS_CATALOG': 'test_catalog',
             'DATABRICKS_SCHEMA': 'test_schema'
         })

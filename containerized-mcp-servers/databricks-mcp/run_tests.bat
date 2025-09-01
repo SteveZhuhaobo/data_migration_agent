@@ -24,7 +24,7 @@ if !errorlevel! neq 0 (
 )
 
 echo 🔗 Running integration tests...
-docker-compose -f docker-compose.test.yml run --rm databricks-mcp-test python -c "import unittest; import sys; import os; sys.path.insert(0, '/app'); print('Running basic integration validation...'); import server; import env_validator; import health_check; print('✅ All modules imported successfully'); os.environ.update({'DATABRICKS_SERVER_HOSTNAME': 'test-workspace.cloud.databricks.com', 'DATABRICKS_HTTP_PATH': '/sql/1.0/warehouses/test-warehouse-id', 'DATABRICKS_ACCESS_TOKEN': 'dapi1234567890abcdef1234567890abcdef'}); server.load_config(); print('✅ Configuration loaded successfully'); server.validate_connection(); print('✅ Connection validation passed'); print('🎉 Basic integration tests passed!')"
+docker-compose -f docker-compose.test.yml run --rm databricks-mcp-test python -c "import unittest; import sys; import os; sys.path.insert(0, '/app'); print('Running basic integration validation...'); import server; import env_validator; import health_check; print('✅ All modules imported successfully'); os.environ.update({'DATABRICKS_SERVER_HOSTNAME': 'test-workspace.cloud.databricks.com', 'DATABRICKS_HTTP_PATH': '/sql/1.0/warehouses/test-warehouse-id', 'DATABRICKS_ACCESS_TOKEN': 'fake-test-token-not-real'}); server.load_config(); print('✅ Configuration loaded successfully'); server.validate_connection(); print('✅ Connection validation passed'); print('🎉 Basic integration tests passed!')"
 
 echo 📊 Test Results:
 echo ===============

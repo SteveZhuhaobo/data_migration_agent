@@ -47,7 +47,7 @@ try:
     os.environ.update({
         'DATABRICKS_SERVER_HOSTNAME': 'test-workspace.cloud.databricks.com',
         'DATABRICKS_HTTP_PATH': '/sql/1.0/warehouses/test-warehouse-id',
-        'DATABRICKS_ACCESS_TOKEN': 'dapi1234567890abcdef1234567890abcdef'
+        'DATABRICKS_ACCESS_TOKEN': 'fake-test-token-not-real'
     })
     
     server.load_config()
