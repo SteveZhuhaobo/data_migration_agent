@@ -1,0 +1,114 @@
+{
+  "platform_info": {
+    "system": "Windows",
+    "release": "10",
+    "version": "10.0.19045",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 142 Stepping 12, GenuineIntel",
+    "architecture": [
+      "64bit",
+      "WindowsPE"
+    ],
+    "python_version": "3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]",
+    "python_executable": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\mcp-distribution-dev\\Scripts\\python.exe",
+    "python_implementation": "CPython"
+  },
+  "validation_timestamp": "2025-09-02T17:14:18.424552",
+  "tests": {
+    "package_structure": {
+      "requirement": "7.1 - Package structure",
+      "success": true,
+      "required_files": [
+        "pyproject.toml",
+        "src/databricks_mcp_server/__init__.py",
+        "src/databricks_mcp_server/main.py",
+        "src/databricks_mcp_server/server.py",
+        "src/databricks_mcp_server/config.py",
+        "config/config.yaml.example"
+      ],
+      "missing_files": [],
+      "message": "All required files present"
+    },
+    "python_version": {
+      "requirement": "7.2 - Python version compatibility",
+      "success": true,
+      "current_version": "3.13.5",
+      "minimum_required": "3.8",
+      "message": "Python 3.13 meets requirements"
+    },
+    "basic_imports": {
+      "requirement": "7.3 - Dependency resolution",
+      "success": true,
+      "tested_modules": [
+        "databricks_mcp_server",
+        "databricks_mcp_server.main",
+        "databricks_mcp_server.server",
+        "databricks_mcp_server.config"
+      ],
+      "failed_imports": [],
+      "message": "All imports successful"
+    },
+    "entry_point": {
+      "requirement": "7.4 - Entry point execution",
+      "success": true,
+      "help_command": true,
+      "version_command": true,
+      "help_output": "usage: main.py [-h] [--config CONFIG]\n               [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}] [--version]\n\nDatabricks MCP Server - Model Context Protocol server for Databricks operations\n\nopt...",
+      "version_output": "databricks-mcp-server 1.0.0",
+      "message": "Entry point working correctly"
+    },
+    "path_handling": {
+      "requirement": "7.1 - Cross-platform path handling",
+      "success": true,
+      "platform": "Windows",
+      "tested_paths": {
+        "config.yaml": {
+          "normalized": "config.yaml",
+          "absolute": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\databricks-mcp-server\\config.yaml",
+          "success": true
+        },
+        "./config.yaml": {
+          "normalized": "config.yaml",
+          "absolute": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\databricks-mcp-server\\config.yaml",
+          "success": true
+        },
+        "config/config.yaml": {
+          "normalized": "config\\config.yaml",
+          "absolute": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\databricks-mcp-server\\config\\config.yaml",
+          "success": true
+        },
+        "C:\\temp\\config.yaml": {
+          "normalized": "C:\\temp\\config.yaml",
+          "absolute": "C:\\temp\\config.yaml",
+          "success": true
+        },
+        "config\\config.yaml": {
+          "normalized": "config\\config.yaml",
+          "absolute": "C:\\Users\\steve.zhu\\OneDrive - FUSION5 Business Solutions\\MyProject\\Learning\\AWS\\KIRO_PoC\\data_migration_agent\\databricks-mcp-server\\config\\config.yaml",
+          "success": true
+        }
+      },
+      "message": "Path handling works correctly"
+    },
+    "configuration": {
+      "requirement": "7.5 - Configuration loading",
+      "success": true,
+      "config_file_test": true,
+      "message": "Configuration loading works"
+    },
+    "uvx_compatibility": {
+      "requirement": "7.1-7.4 - uvx compatibility",
+      "success": true,
+      "uvx_available": true,
+      "uvx_version": "uvx 0.8.14 (af856fb88 2025-08-28)",
+      "execution_result": {
+        "success": true,
+        "returncode": 0,
+        "stdout": "usage: databricks-mcp-server [-h] [--config CONFIG]\n                             [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]\n                             [--version]\n\nDatabricks MCP Server - Model Context Protocol server for Databricks operations\n\noptions:\n  -h, --help            show this help message and exit\n  --config CONFIG       Path to configuration file (YAML format)\n  --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}\n                        Set logging level (default: INFO)\n  --version             show program's version number and exit\n\nConfiguration:\n  The server can be configured using:\n  1. Environment variables (highest priority):\n     - DATABRICKS_SERVER_HOSTNAME\n     - DATABRICKS_HTTP_PATH  \n     - DATABRICKS_ACCESS_TOKEN\n     - DATABRICKS_CATALOG (optional, default: hive_metastore)\n     - DATABRICKS_SCHEMA (optional, default: default)\n     - DATABRICKS_TIMEOUT (optional, default: 120)\n     - DATABRICKS_MCP_LOG_LEVEL (optional, default: INFO)\n  \n  2. Configuration file (lower priority):\n     - Use --config to specify a custom config file\n     - Default locations: ./config.yaml, ./config/config.yaml, ~/.databricks-mcp/config.yaml\n\nExamples:\n  # Run with environment variables\n  export DATABRICKS_SERVER_HOSTNAME=your-workspace.cloud.databricks.com\n  export DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/your-warehouse-id\n  export DATABRICKS_ACCESS_TOKEN=your-token\n  databricks-mcp-server\n  \n  # Run with custom config file\n  databricks-mcp-server --config /path/to/config.yaml\n  \n  # Run with debug logging\n  databricks-mcp-server --log-level DEBUG\n        \n",
+        "stderr": ""
+      },
+      "message": "uvx execution works"
+    }
+  },
+  "overall_success": true
+}

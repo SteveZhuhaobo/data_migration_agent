@@ -1,0 +1,142 @@
+# Example configuration file for Databricks MCP Server
+# Copy this file to config.yaml and update with your Databricks credentials
+#
+# Configuration Precedence (highest to lowest):
+# 1. Environment variables
+# 2. Config file specified via --config argument
+# 3. Default config file locations (./config.yaml, ~/.databricks-mcp/config.yaml)
+
+# =============================================================================
+# DATABRICKS CONNECTION CONFIGURATION (REQUIRED)
+# =============================================================================
+
+databricks:
+  # Your Databricks workspace hostname (without https://)
+  # Example: "my-workspace.cloud.databricks.com"
+  # Required: Yes
+  server_hostname: "your-workspace.cloud.databricks.com"
+  
+  # HTTP path for your SQL warehouse or cluster
+  # SQL Warehouse format: /sql/1.0/warehouses/{warehouse-id}
+  # Cluster format: /sql/protocolv1/o/{org-id}/{cluster-id}
+  # Required: Yes
+  http_path: "/sql/1.0/warehouses/your-warehouse-id"
+  
+  # Personal access token for authentication
+  # Generate this in your Databricks workspace: User Settings > Access Tokens
+  # Required: Yes
+  # Security Note: Consider using environment variables for sensitive values
+  access_token: "your-access-token-here"
+  
+  # Default catalog to use for operations
+  # Common values: "hive_metastore", "main", "samples"
+  # Required: No (defaults to "hive_metastore")
+  catalog: "hive_metastore"
+  
+  # Default schema/database to use for operations
+  # Common values: "default", "information_schema"
+  # Required: No (defaults to "default")
+  schema: "default"
+  
+  # Connection timeout in seconds
+  # Increase for slow networks or large queries
+  # Required: No (defaults to 120)
+  timeout: 120
+
+# =============================================================================
+# SERVER CONFIGURATION (OPTIONAL)
+# =============================================================================
+
+server:
+  # Logging level for the MCP server
+  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  # DEBUG: Detailed information for debugging
+  # INFO: General information about server operations
+  # WARNING: Warning messages for potential issues
+  # ERROR: Error messages for failures
+  # CRITICAL: Critical errors that may stop the server
+  # Required: No (defaults to "INFO")
+  log_level: "INFO"
+
+# =============================================================================
+# ENVIRONMENT VARIABLE ALTERNATIVES
+# =============================================================================
+#
+# You can configure all options using environment variables instead of this file.
+# Environment variables take precedence over config file values.
+#
+# Required Environment Variables:
+# DATABRICKS_SERVER_HOSTNAME=your-workspace.cloud.databricks.com
+# DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/your-warehouse-id
+# DATABRICKS_ACCESS_TOKEN=your-access-token-here
+#
+# Optional Environment Variables:
+# DATABRICKS_CATALOG=hive_metastore
+# DATABRICKS_SCHEMA=default
+# DATABRICKS_TIMEOUT=120
+# DATABRICKS_MCP_LOG_LEVEL=INFO
+#
+# Example usage:
+# export DATABRICKS_SERVER_HOSTNAME="my-workspace.cloud.databricks.com"
+# export DATABRICKS_HTTP_PATH="/sql/1.0/warehouses/abc123def456"
+# export DATABRICKS_ACCESS_TOKEN="dapi1234567890abcdef"
+# databricks-mcp-server
+
+# =============================================================================
+# CONFIGURATION FILE LOCATIONS
+# =============================================================================
+#
+# The server looks for configuration files in the following order:
+# 1. File specified with --config argument
+# 2. ./config.yaml (current directory)
+# 3. ./config/config.yaml (config subdirectory)
+# 4. ~/.databricks-mcp/config.yaml (user home directory)
+#
+# Example usage with custom config file:
+# databricks-mcp-server --config /path/to/my/config.yaml
+
+# =============================================================================
+# SECURITY BEST PRACTICES
+# =============================================================================
+#
+# 1. Use environment variables for sensitive values like access_token
+# 2. Set restrictive file permissions on config files (600 or 640)
+# 3. Never commit config files with real credentials to version control
+# 4. Rotate access tokens regularly
+# 5. Use workspace-specific tokens with minimal required permissions
+#
+# Example secure setup:
+# chmod 600 config.yaml
+# export DATABRICKS_ACCESS_TOKEN="your-token-here"
+# databricks-mcp-server --config config.yaml
+
+# =============================================================================
+# COMMON CONFIGURATION EXAMPLES
+# =============================================================================
+
+# Example 1: SQL Warehouse connection
+# databricks:
+#   server_hostname: "my-company.cloud.databricks.com"
+#   http_path: "/sql/1.0/warehouses/1234567890abcdef"
+#   access_token: "dapi1234567890abcdef"
+#   catalog: "main"
+#   schema: "analytics"
+
+# Example 2: Cluster connection
+# databricks:
+#   server_hostname: "my-company.cloud.databricks.com"
+#   http_path: "/sql/protocolv1/o/1234567890123456/0123-456789-abc123"
+#   access_token: "dapi1234567890abcdef"
+#   catalog: "hive_metastore"
+#   schema: "default"
+
+# Example 3: Development environment with debug logging
+# databricks:
+#   server_hostname: "dev-workspace.cloud.databricks.com"
+#   http_path: "/sql/1.0/warehouses/dev-warehouse-id"
+#   access_token: "dev-token-here"
+#   catalog: "dev_catalog"
+#   schema: "sandbox"
+#   timeout: 300
+# server:
+#   log_level: "DEBUG"
